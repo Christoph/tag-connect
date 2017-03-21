@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv("datasets/all_raw.csv")
+data = pd.read_csv("datasets/raw.csv")
 
-temp = data[["TagName", "SongID"]]
-groups = temp.groupby("TagName").count()
+temp = data[["tag_name", "song_id"]]
+groups = temp.groupby("tag_name").count()
 groups = groups.reset_index()
-groups.columns = ["TagName", "count"]
-
+groups.columns = ["tag_name", "count"]
 
 greaterfive = groups[groups["count"] > 5]
 tofive = groups[groups["count"] <= 5]
