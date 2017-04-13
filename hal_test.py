@@ -64,7 +64,7 @@ print("Sim done")
 # np.save("tag_sim", sim)
 
 # Get context row
-context_row = sim[vocab["rock"]].copy()
+context_row = sim[vocabulary["rock"]].copy()
 
 # Remove self similarity and rescale
 min_max_scaler = MinMaxScaler()
@@ -74,7 +74,7 @@ rescaled = min_max_scaler.fit_transform(context_row.reshape(-1, 1))
 
 # Get similarity list
 similarities = pd.DataFrame(
-    {'word': sorted(vocab, key=vocab.get),
+    {'word': sorted(vocabulary, key=vocabulary.get),
      'similarity': rescaled.flatten()
      })
 
