@@ -65,7 +65,7 @@ for ind, tag in data.tag_name.iteritems():
             n_counts.setdefault(n, 1)
 
 neigh_counts = pd.DataFrame.from_dict(n_counts, orient="index").reset_index()
-neigh_counts.columns = ["tag_name", "neighbour_count"]
+neigh_counts.columns = ["tag_name", "neighbour_count_"+number_of_top_tags]
 
 # ! Already saved complete models in datasets/ !
 feats.to_csv("datasets/idf_scores.csv", index=False)
