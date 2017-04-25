@@ -89,5 +89,4 @@ ENV/
 .ropeproject
 
 datasets/
-*.csv
 *.txt
