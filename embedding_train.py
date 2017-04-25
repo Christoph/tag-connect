@@ -9,7 +9,7 @@ data = pd.read_csv("song_docs.csv")
 data.tag_name = data.tag_doc.astype(str)
 subset = data[0:1000]
 
-used_dataset = subset.tag_doc.str.lower()
+used_dataset = data.tag_doc.str.lower()
 
 # Preprocessing
 # Inner regex replaces all non alpha numerics except point and space by space
@@ -19,19 +19,24 @@ clean_dataset = used_dataset.apply(
     lambda x: re.sub(r"\s+", " ", re.sub(r"[^\w\d .]", " ", x)).rstrip().lstrip())
 
 
-sentences = [d.split(".") for d in clean_dataset]
+temp = [d.split(".") for d in clean_dataset]
+sentences = [item.split(" ") for sublist in temp for item in sublist]
 docs = [d.replace(".", " ") for d in clean_dataset]
 fasttext = " ".join(used_dataset).replace(".", " ")
 
 with open('datasets/fasttext', 'w') as file:
     file.write(fasttext)
 
-wv_model = Word2Vec(sentences, window=5, min_count=1, workers=4, batch_words=200)
+wv_model = Word2Vec(sentences, window=5, min_count=1, workers=4, batch_words=200, sg=1)
 ft_model = FastText.train(
     "/home/chris/source/fastText/fasttext",
     corpus_file="datasets/fasttext", model="skipgram", min_count=1)
 
-for name, model in {"wv": wv_model, "ft": ft_model}:
+'''
+FAST TEXT
+'''
+
+for name, model in {"ft": ft_model, "wv": wv_model}.items():
     threshold = 0.90
     counts = {}
     n_counts = {}
@@ -45,12 +50,12 @@ for name, model in {"wv": wv_model, "ft": ft_model}:
                 if tag not in neighbours:
                     number_of_top_tags = 10
 
-                    neighs = model.most_similar(tag, topn=number_of_top_tags)
+                    neighs = ft_model.most_similar(tag, topn=number_of_top_tags)
 
                     while neighs[-1][1] >= threshold:
                         number_of_top_tags = number_of_top_tags * 2
 
-                        neighs = model.most_similar(tag, topn=number_of_top_tags)
+                        neighs = ft_model.most_similar(tag, topn=number_of_top_tags)
 
                     neighbours.setdefault(tag, [n for n in neighs if n[1] >= threshold])
 
