@@ -9,7 +9,7 @@ data = pd.read_csv("song_docs.csv")
 data.tag_name = data.tag_doc.astype(str)
 subset = data[0:1000]
 
-used_dataset = data.tag_doc.str.lower()
+used_dataset = subset.tag_doc.str.lower()
 
 # Preprocessing
 # Inner regex replaces all non alpha numerics except point and space by space
@@ -17,6 +17,10 @@ used_dataset = data.tag_doc.str.lower()
 # The two strip function remove outside spaces
 clean_dataset = used_dataset.apply(
     lambda x: re.sub(r"\s+", " ", re.sub(r"[^\w\d .]", " ", x)).rstrip().lstrip())
+
+# Removing duplicate tags per song
+clean_dataset = clean_dataset.apply(
+    lambda x: ".".join(set(x.split("."))))
 
 
 temp = [d.split(".") for d in clean_dataset]
@@ -47,7 +51,7 @@ for name, model in {"wv": wv_model, "ft": ft_model}.items():
     for song in docs:
         if len(song) > 0:
             for tag in song.split(" "):
-                if tag not in neighbours:
+                if tag not in neighbours and len(tag) > 0:
                     number_of_top_tags = 10
 
                     neighs = model.most_similar(tag, topn=number_of_top_tags)
@@ -63,37 +67,38 @@ for name, model in {"wv": wv_model, "ft": ft_model}.items():
     for song in docs:
         if len(song) > 0:
             for tag in song.split(" "):
-                # Get neighbours
-                neighs = neighbours[tag]
+                if len(tag) > 0:
+                    # Get neighbours
+                    neighs = neighbours[tag]
 
-                # Save tag count
-                if tag in counts:
-                    counts[tag] += 1
-                else:
-                    counts.setdefault(str(tag), 1)
-
-                # Save neighbourhood size
-                if tag not in n_neighs:
-                    n_neighs.setdefault(tag, len(neighs))
-
-                # Add center tag to neighbour counts
-                if tag in n_counts:
-                    n_counts[tag] += 1
-                else:
-                    n_counts.setdefault(tag, 1)
-
-                # Get neighbour counts
-                for n in [a[0] for a in neighs]:
-                    if n in n_counts:
-                        n_counts[n] += 1
+                    # Save tag count
+                    if tag in counts:
+                        counts[tag] += 1
                     else:
-                        n_counts.setdefault(n, 1)
+                        counts.setdefault(str(tag), 1)
+
+                    # Save neighbourhood size
+                    if tag not in n_neighs:
+                        n_neighs.setdefault(tag, len(neighs))
+
+                    # Add center tag to neighbour counts
+                    if tag in n_counts:
+                        n_counts[tag] += 1
+                    else:
+                        n_counts.setdefault(tag, 1)
+
+                    # Get neighbour counts
+                    for n in [a[0] for a in neighs]:
+                        if n in n_counts:
+                            n_counts[n] += 1
+                        else:
+                            n_counts.setdefault(n, 1)
 
     tag_counts = pd.DataFrame.from_dict(counts, orient="index").reset_index()
     neigh_counts = pd.DataFrame.from_dict(n_counts, orient="index").reset_index()
-    neigh_neighs = pd.DataFrame.from_dict(n_counts, orient="index").reset_index()
+    neigh_neighs = pd.DataFrame.from_dict(n_neighs, orient="index").reset_index()
     neighs_out = pd.DataFrame.from_dict(
-        {k: ",".join([t[1] for t in v]) for k, v in neighbours.items()}, orient="index").reset_index()
+        {k: ",".join([t[0] for t in v]) for k, v in neighbours.items()}, orient="index").reset_index()
 
     out = pd.merge(pd.merge(tag_counts, neigh_counts, on="index"), neigh_neighs, on="index")
 
