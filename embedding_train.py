@@ -36,7 +36,7 @@ ft_model = FastText.train(
 FAST TEXT
 '''
 
-for name, model in {"ft": ft_model, "wv": wv_model}.items():
+for name, model in {"wv": wv_model, "ft": ft_model}.items():
     threshold = 0.90
     counts = {}
     n_counts = {}
@@ -50,12 +50,12 @@ for name, model in {"ft": ft_model, "wv": wv_model}.items():
                 if tag not in neighbours:
                     number_of_top_tags = 10
 
-                    neighs = ft_model.most_similar(tag, topn=number_of_top_tags)
+                    neighs = model.most_similar(tag, topn=number_of_top_tags)
 
                     while neighs[-1][1] >= threshold:
                         number_of_top_tags = number_of_top_tags * 2
 
-                        neighs = ft_model.most_similar(tag, topn=number_of_top_tags)
+                        neighs = model.most_similar(tag, topn=number_of_top_tags)
 
                     neighbours.setdefault(tag, [n for n in neighs if n[1] >= threshold])
 
