@@ -9,7 +9,7 @@ data = pd.read_csv("song_docs.csv")
 data.tag_name = data.tag_doc.astype(str)
 subset = data[0:1000]
 
-used_dataset = subset.tag_doc.str.lower()
+used_dataset = data.tag_doc.str.lower()
 
 # Preprocessing
 # Inner regex replaces all non alpha numerics except point and space by space
@@ -22,11 +22,10 @@ clean_dataset = used_dataset.apply(
 clean_dataset = clean_dataset.apply(
     lambda x: ".".join(set(x.split("."))))
 
-
 temp = [d.split(".") for d in clean_dataset]
 sentences = [item.split(" ") for sublist in temp for item in sublist]
 docs = [d.replace(".", " ") for d in clean_dataset]
-fasttext = " ".join(used_dataset).replace(".", " ")
+fasttext = " ".join(clean_dataset).replace(".", " ")
 
 with open('datasets/fasttext', 'w') as file:
     file.write(fasttext)
