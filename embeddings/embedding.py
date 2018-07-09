@@ -1,4 +1,4 @@
-import hal_embedding
+import embeddings.hal_embedding as hal_embedding
 import numpy as np
 import spacy
 from hdbscan import HDBSCAN

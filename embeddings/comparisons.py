@@ -3,10 +3,10 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import networkx as nx
 
-import embedding
-import vis
-import helpers
-import cluster_analysis
+import embeddings.embedding
+import embeddings.vis
+import embeddings.helpers
+import embeddings.cluster_analysis
 
 # LOAD DATA
 (texts, clean, clean_fancy, labels) = helpers.load_reuters_data()
