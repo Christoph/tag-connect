@@ -1,0 +1,20 @@
+name: ml
+depedencies:
+    - numpy
+    - pandas
+    - gensim
+    - ipykernel
+    - jupyter
+    - jedi
+    - keras
+    - networkx
+    - nltk
+    - pip
+    - plotly
+    - python=3.5.5
+    - python-crfsuite
+    - scikit-learn
+    - scipy
+    - textblob
+
+
