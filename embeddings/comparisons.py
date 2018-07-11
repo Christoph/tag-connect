@@ -10,26 +10,27 @@ import vis
 used = clean_fancy
 used = clean
 
-# EMBEDDING
-# Word vectors
-(word_vecs, word_docs, vocab_vecs, vocab) = embedding.HAL(used, True)
-(word_vecs, word_docs, vocab_vecs, vocab) = embedding.W2V(used)
-
-# COMPARISONS
+# EMBEDDING COMPARISONS
+# Document vectors
 (vecs, vectorizer) = embedding.count(used)
 (vecs, vectorizer) = embedding.tfidf(used)
 vecs = embedding.average_word_vectors(used)
 vecs = embedding.count_weighted_average_word_vectors(used)
 vecs = embedding.tfidf_weighted_average_word_vectors(used, vectorizer)
+
+# Word vectors
+(word_vecs, word_docs, vocab_vecs, vocab) = embedding.HAL(used, True)
+(word_vecs, word_docs, vocab_vecs, vocab) = embedding.W2V(used)
+
+# High space clustering of word vectors
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
-    word_vecs, vocab_vecs, "maxclust", 20, vocab=vocab, docs=used)
+    word_vecs, vocab_vecs, "gm", 50)
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
-    word_vecs, vocab_vecs, "birch", 20)
+    word_vecs, vocab_vecs, "birch", 50)
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
-    word_vecs, vocab_vecs, "aff", 20)
+    word_vecs, vocab_vecs, "aff")
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
-    word_vecs, vocab_vecs, "hdbs", 20)
-# fancy, tfidf, birch 20 show interesting results
+    word_vecs, vocab_vecs, "hdbs")
 
 reload(embedding)
 reload(vis)

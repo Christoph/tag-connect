@@ -67,6 +67,7 @@ def link_sim(vecs, leaves, metric="cosine"):
     return sim
 
 def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab=None, docs=None):
+    hasLabels = True
     cluster = None
     if clustering == "birch":
         cluster = Birch(n_clusters=bins).fit(vocab_vecs)
@@ -77,6 +78,8 @@ def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab
     elif clustering == "gm":
         cluster = GaussianMixture(bins).fit(vocab_vecs)
         doc_labels = {i: cluster.predict(d) for i, d in enumerate(word_vecs)}
+        clusters = np.arange(0, bins)
+        hasLabels = False
     elif clustering == "aff":
         cluster = AffinityPropagation().fit(vocab_vecs)
         doc_labels = {i: cluster.predict(d) for i, d in enumerate(word_vecs)}
@@ -88,12 +91,13 @@ def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab
     elif clustering == "maxclust":
         link = linkage(vocab_vecs, method='weighted', metric="cosine", optimal_ordering=True)
         clusters = fcluster(link, bins, criterion='maxclust')
+        hasLabels = False
 
         mapping = dict(zip([w.text for w in vocab], clusters))
 
         doc_labels = {i: [mapping[w]-1 for w in d.split(" ")] for i, d in enumerate(docs)}
 
-    u_labels = np.unique(cluster.labels_) if cluster else np.unique(clusters)-1
+    u_labels = np.unique(cluster.labels_) if hasLabels else np.unique(clusters)-1
     bins = len(u_labels)
     norm_labels = {}
 
