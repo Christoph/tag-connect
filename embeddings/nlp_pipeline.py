@@ -60,7 +60,7 @@ reload(vis)
 # Cluster analysis
 classes = cluster_analysis.prepare_label_data(labels, word_vecs, word_docs)
 documents = cluster_analysis.prepare_data(word_vecs, word_docs)
-tfidf_documents = cluster_analysis.prepare_tfidf_data(vecs, used)
+tfidf_documents = cluster_analysis.prepare_tfidf_data(vecs.toarray(), used)
 
 
 # Algorithms: agglo, km, gauss, aff
@@ -73,7 +73,7 @@ vis.multi_histogram(predictions)
 
 sim = embedding.earth_mover_distance(dist_predictions)
 
-wasserstein_distance(predictions["13"], predictions["14"])
-[v[0] for v in vocab_labels.items() if v[1] == 14]
-set([v[0] for v in vocab_labels.items() if v[1] == 13]).intersection(
+wasserstein_distance(predictions["0"], predictions["1"])
+[v[0] for v in vocab_labels.items() if v[1] == 2]
+set([v[0] for v in vocab_labels.items() if v[1] == 1]).intersection(
     [v[0] for v in vocab_labels.items() if v[1] == 14])

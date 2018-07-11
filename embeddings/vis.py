@@ -1,16 +1,16 @@
+import networkx as nx
+import numpy as np
+import plotly.figure_factory as ff
+import plotly.graph_objs as go
 from plotly import offline as py
 from plotly import tools
-import plotly.graph_objs as go
-import plotly.figure_factory as ff
-
-from sklearn.manifold import TSNE, MDS
-from sklearn.decomposition import TruncatedSVD, PCA, NMF, LatentDirichletAllocation
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import scipy.sparse as sp
-from scipy.spatial.distance import pdist, squareform
-from sklearn.preprocessing import Normalizer
-import networkx as nx
+from scipy.sparse.csr import csr_matrix
+from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
+                                   TruncatedSVD)
+from sklearn.manifold import MDS, TSNE
+
+import embedding
 
 py.init_notebook_mode()
 
@@ -38,10 +38,10 @@ def cluster_document(predictions, vocab_labels):
     for i in range(0, len(clusters)):
         traces.append(go.Bar(
             x=x,
-            y=data[:,i],
+            y=data[:, i],
             name=clusters[i],
-            text=data[:,i],
-            textposition = 'auto',
+            text=data[:, i],
+            textposition='auto',
         ))
 
     fig = tools.make_subplots(rows=len(clusters), cols=1,
@@ -137,27 +137,45 @@ def graph(G):
         node_trace['text'].append(str(node))
 
     fig = go.Figure(data=[edge_trace, node_trace],
-                 layout=go.Layout(
-                    title='<br>Network graph made with Python',
-                    titlefont=dict(size=16),
-                    showlegend=False,
-                    hovermode='closest',
-                    margin=dict(b=20,l=5,r=5,t=40),
-                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)))
+                    layout=go.Layout(
+                        title='<br>Network graph made with Python',
+                        titlefont=dict(size=16),
+                        showlegend=False,
+                        hovermode='closest',
+                        margin=dict(b=20, l=5, r=5, t=40),
+                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)))
 
     py.iplot(fig, filename='networkx')
 
-def cluster_heatmap(link, docs, sim=None, mode="intersection"):
-    labels = np.arange(0, len(docs))
+def cluster_heatmap(vecs, docs, metric="cosine", mode="intersection",  order=False):
+    if isinstance(vecs, csr_matrix):
+        checked = vecs.todense()
+    else:
+        checked = vecs
 
     # Initialize figure by creating upper dendrogram
-    figure = ff.create_dendrogram(link, orientation='bottom', labels=labels)
+    figure = ff.create_dendrogram(
+        checked, orientation='bottom',
+        linkagefun=lambda x: embedding.linkfun(
+            checked,
+            metric=metric,
+            order=order)
+    )
+
     for i in range(len(figure['data'])):
         figure['data'][i]['yaxis'] = 'y2'
 
     # Create Side Dendrogram
-    dendro_side = ff.create_dendrogram(link, orientation='right')
+    # dendro_side = ff.create_dendrogram(link, orientation='right')
+    dendro_side = ff.create_dendrogram(
+        checked, orientation='right',
+        linkagefun=lambda x: embedding.linkfun(
+        checked,
+        metric=metric,
+        order=order)
+    )
+
     for i in range(len(dendro_side['data'])):
         dendro_side['data'][i]['xaxis'] = 'x2'
 
@@ -168,12 +186,7 @@ def cluster_heatmap(link, docs, sim=None, mode="intersection"):
     dendro_leaves = dendro_side['layout']['yaxis']['ticktext']
     dendro_leaves = list(map(int, dendro_leaves))
 
-    if sim is None:
-        data_dist = pdist(link)
-        data_dist /= data_dist.max()
-        sim = 1 - squareform(data_dist)
-        sim = sim[dendro_leaves,:]
-        sim = sim[:,dendro_leaves]
+    sim = embedding.link_sim(checked, dendro_leaves, metric=metric)
 
     hovertext = list()
 
@@ -190,9 +203,9 @@ def cluster_heatmap(link, docs, sim=None, mode="intersection"):
 
     heatmap = [
         go.Heatmap(
-            x = dendro_leaves,
-            y = dendro_leaves,
-            z = sim,
+            x=dendro_leaves,
+            y=dendro_leaves,
+            z=sim,
             colorscale=[
                 [0, 'rgb(255,255,204)'],
                 [0.2, 'rgb(255,255,204)'],
@@ -222,7 +235,7 @@ def cluster_heatmap(link, docs, sim=None, mode="intersection"):
     # Edit Layout
     figure['layout'].update({'width':600, 'height':600,
                              'showlegend':False, 'hovermode': 'closest',
-                             })
+                            })
     # Edit xaxis
     figure['layout']['xaxis'].update({'domain': [.15, 1],
                                       'mirror': False,
@@ -232,12 +245,12 @@ def cluster_heatmap(link, docs, sim=None, mode="intersection"):
                                       'ticks':""})
     # Edit xaxis2
     figure['layout'].update({'xaxis2': {'domain': [0, .15],
-                                       'mirror': False,
-                                       'showgrid': False,
-                                       'showline': False,
-                                       'zeroline': False,
-                                       'showticklabels': False,
-                                       'ticks':""}})
+                                        'mirror': False,
+                                        'showgrid': False,
+                                        'showline': False,
+                                        'zeroline': False,
+                                        'showticklabels': False,
+                                        'ticks':""}})
 
     # Edit yaxis
     figure['layout']['yaxis'].update({'domain': [0, .85],
@@ -293,8 +306,13 @@ def set_histogram(inter, w_inter, diff1, w_diff1, diff2, w_diff2):
 
     py.iplot(fig)
 
-def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=True):
-    n_dims = len(vecs[0]) if dense else vecs.shape[1]
+def scree_plot(truth, vecs, metric="cosine", maxdim=300, nonlinear=False, uselda=True, usenmf=False):
+    if isinstance(vecs, csr_matrix):
+        checked = vecs.todense()
+        n_dims = vecs.shape[1]
+    else:
+        checked = vecs
+        n_dims = len(vecs[0])
 
     if n_dims > 50:
         dimensions = list(range(1, 50)) + list(range(50, min(maxdim, n_dims), 10))
@@ -308,7 +326,7 @@ def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=Tru
             metrics["svd"] = []
         else:
             svd = TruncatedSVD(d).fit_transform(vecs)
-            svd_sim = cosine_similarity(svd)
+            svd_sim = embedding.similarity_matrix(svd, metric=metric)
             svd_diff = np.absolute(truth - svd_sim)
 
             metrics.get("svd").append(1 - np.average(svd_diff))
@@ -316,18 +334,28 @@ def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=Tru
         if "pca" not in metrics:
             metrics["pca"] = []
         else:
-            pca = PCA(d).fit_transform(vecs if dense else vecs.toarray())
-            pca_sim = cosine_similarity(pca)
+            pca = PCA(d).fit_transform(checked)
+            pca_sim = embedding.similarity_matrix(pca, metric=metric)
             pca_diff = np.absolute(truth - pca_sim)
 
             metrics.get("pca").append(1 - np.average(pca_diff))
+
+        if usenmf:
+            if "nmf" not in metrics:
+                metrics["nmf"] = []
+            else:
+                nmf = NMF(d).fit_transform(vecs)
+                nmf_sim = embedding.similarity_matrix(nmf, metric=metric)
+                nmf_diff = np.absolute(truth - nmf_sim)
+
+                metrics.get("nmf").append(1 - np.average(nmf_diff))
 
         if uselda:
             if "lda" not in metrics:
                 metrics["lda"] = []
             else:
                 lda = LatentDirichletAllocation(d, learning_method="batch").fit_transform(vecs)
-                lda_sim = cosine_similarity(lda)
+                lda_sim = embedding.similarity_matrix(lda, metric=metric)
                 lda_diff = np.absolute(truth - lda_sim)
 
                 metrics.get("lda").append(1 - np.average(lda_diff))
@@ -336,8 +364,8 @@ def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=Tru
             if "tsne" not in metrics:
                 metrics["tsne"] = []
             else:
-                tsne = TSNE(d, method="exact").fit_transform(vecs if dense else vecs.toarray())
-                tsne_sim = cosine_similarity(tsne)
+                tsne = TSNE(d, method="exact").fit_transform(checked)
+                tsne_sim = embedding.similarity_matrix(tsne, metric=metric)
                 tsne_diff = np.absolute(truth - tsne_sim)
 
                 metrics.get("tsne").append(1 - np.average(tsne_diff))
@@ -345,8 +373,8 @@ def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=Tru
             if "mds" not in metrics:
                 metrics["mds"] = []
             else:
-                mds = MDS(d).fit_transform(vecs if dense else vecs.toarray())
-                mds_sim = cosine_similarity(mds)
+                mds = MDS(d).fit_transform(checked)
+                mds_sim = embedding.similarity_matrix(mds, metric=metric)
                 mds_diff = np.absolute(truth - mds_sim)
 
                 metrics.get("mds").append(1 - np.average(mds_diff))
@@ -360,9 +388,9 @@ def scree_plot(truth, vecs, maxdim=300, dense=False, nonlinear=False, uselda=Tru
         ))
 
     layout = dict(
-        title = 'Average similarity between two matrices whereas the second one is dimension reduced',
-        xaxis = dict(title = 'Dimension'),
-        yaxis = dict(title = 'Average similarity'),
+        title='Average similarity between two matrices whereas the second one is dimension reduced',
+        xaxis=dict(title = 'Dimension'),
+        yaxis=dict(title = 'Average similarity'),
         )
 
     fig = dict(data=data, layout=layout)
@@ -383,7 +411,8 @@ def scatter_tsne(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers',
+        mode='markers+text',
+        textposition='bottom center',
         text=ids,
         marker=dict(
             size=14,
@@ -405,7 +434,8 @@ def scatter_mds(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers',
+        mode='markers+text',
+        textposition='bottom center',
         text=ids,
         marker=dict(
             size=14,
@@ -423,7 +453,8 @@ def scatter_svd(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers',
+        mode='markers+text',
+        textposition='bottom center',
         text=ids,
         marker=dict(
             size=14,
@@ -433,6 +464,82 @@ def scatter_svd(vecs, labels):
 
     data = [trace]
     py.iplot(data)
+
+def scatter(vecs, labels):
+    if sp.issparse(vecs):
+        checked = vecs.todense()
+    else:
+        checked = vecs
+
+    svd = TruncatedSVD(2).fit_transform(checked)
+    svd_ids = list(range(0, len(svd)))
+
+    trace1 = go.Scatter(
+        x=svd[:, 0],
+        y=svd[:, 1],
+        mode='markers+text',
+        textposition='bottom center',
+        text=svd_ids,
+        marker=dict(
+            size=14,
+            color=labels
+            )
+    )
+
+    pca = PCA(2).fit_transform(checked)
+    pca_ids = list(range(0, len(pca)))
+
+    trace2 = go.Scatter(
+        x=pca[:, 0],
+        y=pca[:, 1],
+        mode='markers+text',
+        textposition='bottom center',
+        text=pca_ids,
+        marker=dict(
+            size=14,
+            color=labels
+            )
+    )
+
+    tsne = TSNE().fit_transform(checked)
+    tsne_ids = list(range(0, len(tsne)))
+
+    trace3 = go.Scatter(
+        x=tsne[:, 0],
+        y=tsne[:, 1],
+        mode='markers+text',
+        textposition='bottom center',
+        text=tsne_ids,
+        marker=dict(
+            size=14,
+            color=labels
+            )
+    )
+
+    mds = MDS().fit_transform(checked)
+    mds_ids = list(range(0, len(mds)))
+
+    trace4 = go.Scatter(
+        x=mds[:, 0],
+        y=mds[:, 1],
+        mode='markers+text',
+        textposition='bottom center',
+        text=mds_ids,
+        marker=dict(
+            size=14,
+            color=labels
+            )
+    )
+
+    fig = tools.make_subplots(rows=2, cols=2, subplot_titles=('SVD', 'PCA',
+                                                              'TSNE', 'MDS'))
+    fig.append_trace(trace1, 1, 1)
+    fig.append_trace(trace2, 1, 2)
+    fig.append_trace(trace3, 2, 1)
+    fig.append_trace(trace4, 2, 2)
+
+    fig['layout'].update(height=600, width=800, title='2D Projections')
+    py.iplot(fig)
 
 def simMatrix(matrix):
     trace = go.Heatmap(

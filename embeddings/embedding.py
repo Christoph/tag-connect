@@ -1,21 +1,19 @@
-import embeddings.hal_embedding as hal_embedding
+import networkx as nx
 import numpy as np
 import spacy
+from scipy.sparse.csr import csr_matrix
 from hdbscan import HDBSCAN
-from scipy.stats import entropy, wasserstein_distance
-from sklearn.cluster import (DBSCAN, AffinityPropagation, Birch, KMeans,
-                             SpectralClustering)
+from scipy.cluster.hierarchy import (cophenet, fcluster, leaves_list, linkage)
+from scipy.spatial.distance import pdist, squareform
+from scipy.stats import energy_distance, wasserstein_distance
+from sklearn.cluster import (DBSCAN, AffinityPropagation, Birch, KMeans)
 from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
                                    TruncatedSVD)
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import Normalizer
-from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.cluster.hierarchy import fcluster
-from scipy.cluster.hierarchy import cophenet
-from scipy.spatial.distance import pdist, squareform
-import networkx as nx
+
+import hal_embedding
 
 nlp = spacy.load('en')
 
@@ -50,13 +48,23 @@ def reduced(vecs, type, dim):
 
     return reduced
 
-def create_linkage(vecs, dense=False):
-    link = linkage(vecs if dense else vecs.toarray(), method='weighted', metric="cosine", optimal_ordering=True)
+def create_linkage(vecs, metric="cosine", order=True):
+    link = linkfun(vecs, metric, order)
 
-    c, coph_dists = cophenet(link, pdist(vecs))
+    c, coph_dists = cophenet(link, pdist(vecs, metric))
     print("Cophenet Distance between linkage and original vecs: "+str(c))
 
     return link
+
+def linkfun(vecs, metric="cosine", order=True):
+    return linkage(vecs, method='weighted', metric=dist_func(metric), optimal_ordering=order)
+
+def link_sim(vecs, leaves, metric="cosine"):
+    sim = similarity_matrix(vecs, metric=metric)
+    sim = sim[leaves, :]
+    sim = sim[:, leaves]
+
+    return sim
 
 def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab=None, docs=None):
     cluster = None
@@ -72,9 +80,11 @@ def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab
     elif clustering == "aff":
         cluster = AffinityPropagation().fit(vocab_vecs)
         doc_labels = {i: cluster.predict(d) for i, d in enumerate(word_vecs)}
+        print("# labels: "+str(len(np.unique(cluster.labels_))))
     elif clustering == "hdbs":
-        cluster = HDBSCAN(metric="sqeuclidean", min_cluster_size=3, min_samples=None).fit(vocab_vecs)
+        cluster = HDBSCAN(metric="sqeuclidean", min_cluster_size=2, min_samples=None).fit(vocab_vecs)
         doc_labels = {i: cluster.fit_predict(d) for i, d in enumerate(word_vecs)}
+        print("# labels: "+str(len(np.unique(cluster.labels_))))
     elif clustering == "maxclust":
         link = linkage(vocab_vecs, method='weighted', metric="cosine", optimal_ordering=True)
         clusters = fcluster(link, bins, criterion='maxclust')
@@ -100,11 +110,33 @@ def high_space_binning(word_vecs, vocab_vecs, clustering="birch", bins=16, vocab
 
         norm_labels[doc_id] = ((temp - temp.min()) / (temp - temp.min()).sum())
 
-    return doc_labels, norm_labels, cluster
+    vecs = np.vstack(norm_labels.values())
 
-def earth_mover_distance(dist):
-    emd_matrix = [[wasserstein_distance(a, b) for b in dist.values()] for a in dist.values()]
-    sim = 1-emd_matrix/max(max(emd_matrix))
+    return doc_labels, norm_labels, vecs, cluster
+
+def dist_func(metric):
+    if metric == "cosine":
+        return "cosine"
+    elif metric == "emd":
+        return wasserstein_distance
+    elif metric == "cm":
+        return energy_distance
+
+def similarity_matrix(vecs, metric="cosine"):
+    if isinstance(vecs, csr_matrix):
+        checked = vecs.todense()
+    else:
+        checked = vecs
+
+    if metric == "cosine":
+        data_dist = pdist(checked, "cosine")
+    elif metric == "emd":
+        data_dist = pdist(checked, wasserstein_distance)
+    elif metric == "cm":
+        data_dist = pdist(checked, energy_distance)
+
+    data_dist /= data_dist.max()
+    sim = 1 - squareform(data_dist)
 
     return sim
 
@@ -114,16 +146,6 @@ def graph_from_sim(sim, value):
     G=nx.from_numpy_matrix(mask)
 
     return G
-
-def link_sim(link, dim):
-    data_dist = pdist(link)
-    data_dist /= data_dist.max()
-    sim = 1 - squareform(data_dist)
-    print(len(sim))
-    sim = sim[np.arange(0, dim),:]
-    sim = sim[:,np.arange(0, dim)]
-
-    return sim
 
 def HAL(data, reduce=False):
     word_vecs, word_vocab = hal_embedding.HAL(data)
