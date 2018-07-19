@@ -20,6 +20,33 @@ def get_dimension_words(tfidf_vectorizer, tfidf_vecs, reduced_vecs):
 
     return axis_words
 
+def get_top_idf_words(data, vectorizer, n_words=5):
+    top_words = {}
+
+    for k, v in data.items():
+        temp = {}
+
+        if isinstance(v, dict):
+            top_words_sub = {}
+            for ks, vs in v.items():
+                temp_sub = {}
+
+                for ws in vs:
+                    idf = vectorizer.idf_[vectorizer.vocabulary_.get(ws)]
+                    temp_sub[ws] = idf
+
+                temp_sub_sorted = sorted(temp_sub.items(), key=lambda x: x[1], reverse=True)
+                top_words_sub[ks] = temp_sub_sorted[0:n_words]
+            temp[k] = top_words_sub
+        else:
+            for w in v:
+                idf = vectorizer.idf_[vectorizer.vocabulary_.get(w)]
+                temp[w] = idf
+
+        temp_sorted = sorted(temp.items(), key=lambda x: x[1], reverse=True)
+        top_words[k] = temp_sorted[0:n_words]
+
+    return top_words
 
 def load_reuters_data():
     # Raw Texts

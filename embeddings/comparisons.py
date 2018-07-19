@@ -1,6 +1,7 @@
 from importlib import reload
 
 import embedding
+import details
 import helpers
 import vis
 
@@ -12,11 +13,11 @@ used = clean
 
 # EMBEDDING COMPARISONS
 # Document vectors
-(vecs, vectorizer) = embedding.count(used)
-(vecs, vectorizer) = embedding.tfidf(used)
+(vecs, count_vectorizer) = embedding.count(used)
+(vecs, tfidf_vectorizer) = embedding.tfidf(used)
 vecs = embedding.average_word_vectors(used)
 vecs = embedding.count_weighted_average_word_vectors(used)
-vecs = embedding.tfidf_weighted_average_word_vectors(used, vectorizer)
+vecs = embedding.tfidf_weighted_average_word_vectors(used, tfidf_vectorizer)
 
 # Word vectors
 (word_vecs, word_docs, vocab_vecs, vocab) = embedding.HAL(used, True)
@@ -32,8 +33,8 @@ vecs = embedding.tfidf_weighted_average_word_vectors(used, vectorizer)
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
     word_vecs, vocab_vecs, "hdbs")
 
-reload(embedding)
-reload(vis)
+# reload(embedding)
+# reload(vis)
 
 # Similarity simMatrix
 metric = "cosine" # cosine, emd, cm
@@ -42,7 +43,7 @@ sim = embedding.similarity_matrix(vecs, metric)
 # VIS
 vis.simMatrixIntersection(sim, used)
 vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
-vis.graph(embedding.graph_from_sim(sim, 0.25))
+vis.graph(embedding.graph_from_sim(sim, 0.60))
 vis.cluster_heatmap(
     vecs,
     used,
@@ -51,10 +52,16 @@ vis.cluster_heatmap(
     order=True)
 vis.scatter(vecs, labels)
 
-texts[14]
+out = details.word_sets(used, [1, 6, 7])
+out = details.group_comp(used, [1, 7, 6], [12, 13, 14, 15])
+
+top_words = helpers.get_top_idf_words(out, tfidf_vectorizer, 10)
+
+top_words
+texts[12]
 
 # Reduced VIS
-reduced = embedding.reduced(vecs, "svd", 19)
+reduced = embedding.reduced(vecs, "svd", 6)
 reduced_sim = embedding.similarity_matrix(reduced, metric)
 
 vis.simMatrixIntersection(reduced_sim, used)
