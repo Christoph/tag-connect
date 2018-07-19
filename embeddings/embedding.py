@@ -126,7 +126,7 @@ def dist_func(metric):
     elif metric == "cm":
         return energy_distance
 
-def similarity_matrix(vecs, metric="cosine", as_distance=False):
+def similarity_matrix(vecs, metric="cosine", as_distance=False, scaled=True):
     if isinstance(vecs, csr_matrix):
         checked = vecs.todense()
     else:
@@ -139,7 +139,8 @@ def similarity_matrix(vecs, metric="cosine", as_distance=False):
     elif metric == "cm":
         data_dist = pdist(checked, energy_distance)
 
-    data_dist /= data_dist.max()
+    if scaled:
+        data_dist /= data_dist.max()
 
     if as_distance:
         sim = squareform(data_dist)
@@ -151,7 +152,7 @@ def similarity_matrix(vecs, metric="cosine", as_distance=False):
 def graph_from_sim(sim, value):
     mask = np.copy(sim)
     mask[mask < value] = 0
-    G=nx.from_numpy_matrix(mask)
+    G = nx.from_numpy_matrix(mask)
 
     return G
 
