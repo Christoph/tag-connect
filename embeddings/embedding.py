@@ -126,7 +126,7 @@ def dist_func(metric):
     elif metric == "cm":
         return energy_distance
 
-def similarity_matrix(vecs, metric="cosine"):
+def similarity_matrix(vecs, metric="cosine", as_distance=False):
     if isinstance(vecs, csr_matrix):
         checked = vecs.todense()
     else:
@@ -140,7 +140,11 @@ def similarity_matrix(vecs, metric="cosine"):
         data_dist = pdist(checked, energy_distance)
 
     data_dist /= data_dist.max()
-    sim = 1 - squareform(data_dist)
+
+    if as_distance:
+        sim = squareform(data_dist)
+    else:
+        sim = 1 - squareform(data_dist)
 
     return sim
 
