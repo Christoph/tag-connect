@@ -149,6 +149,34 @@ def similarity_matrix(vecs, metric="cosine", as_distance=False, scaled=True):
 
     return sim
 
+def embedding_vector(embeddings, metric, probabilistic=False):
+    out = []
+
+    for emb in embeddings:
+        D = similarity_matrix(emb, metric=metric, as_distance=True, scaled=True)
+        vec = np.mean(D, axis=0)
+
+        if probabilistic:
+            vec = (vec - vec.min()) / (vec - vec.min()).sum()
+
+        out.append(vec)
+
+    return np.array(out)
+
+def embedding_vector_radius(embeddings, metric, radius=0.1, probabilistic=True):
+    out = []
+
+    for emb in embeddings:
+        D = similarity_matrix(emb, metric=metric, as_distance=True, scaled=True)
+        vec = (D <= radius).sum(axis = 0) - 1
+
+        if probabilistic:
+            vec = (vec - vec.min()) / (vec.max() - vec.min())
+
+        out.append(vec)
+
+    return np.array(out)
+
 def graph_from_sim(sim, value):
     mask = np.copy(sim)
     mask[mask < value] = 0
