@@ -14,6 +14,11 @@ from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import Normalizer
 
 import hal_embedding
+import forchristoph
+
+from importlib import reload
+
+reload(forchristoph)
 
 nlp = spacy.load('en')
 
@@ -125,8 +130,10 @@ def dist_func(metric):
         return wasserstein_distance
     elif metric == "cm":
         return energy_distance
+    elif metric == "raph_raph":
+        return forchristoph.raphRaphDistFun
 
-def similarity_matrix(vecs, metric="cosine", as_distance=False, scaled=True):
+def similarity_matrix(vecs, metric="cosine", as_distance=True, scaled=True):
     if isinstance(vecs, csr_matrix):
         checked = vecs.todense()
     else:
@@ -138,6 +145,14 @@ def similarity_matrix(vecs, metric="cosine", as_distance=False, scaled=True):
         data_dist = pdist(checked, wasserstein_distance)
     elif metric == "cm":
         data_dist = pdist(checked, energy_distance)
+    elif metric == "jaccard":
+        data_dist = pdist(checked, lambda x, y: jaccard(x, y))
+    elif metric == "raph_raph":
+        data_dist = pdist(checked, lambda x, y: forchristoph.raphRaphDistFun(x[0], y[0]))
+    elif metric == "raph_earth":
+        data_dist = pdist(checked, lambda x, y: forchristoph.raphEarthDistFun(x[0], y[0]))
+    elif metric == "raph_energy":
+        data_dist = pdist(checked, lambda x, y: forchristoph.raphEnergyDistFun(x[0], y[0]))
 
     if scaled:
         data_dist /= data_dist.max()
@@ -149,6 +164,14 @@ def similarity_matrix(vecs, metric="cosine", as_distance=False, scaled=True):
 
     return sim
 
+def jaccard(d1, d2):
+    s1 = set([w[0] for w in d1])
+    s2 = set([w[0] for w in d2])
+
+    dist = len(s1.intersection(s2))/len(s1.union(s2))
+
+    return 1 - dist
+
 def embedding_vector(embeddings, metric, probabilistic=False):
     out = []
 
@@ -158,6 +181,7 @@ def embedding_vector(embeddings, metric, probabilistic=False):
 
         if probabilistic:
             vec = (vec - vec.min()) / (vec - vec.min()).sum()
+            vec /= vec.sum()
 
         out.append(vec)
 
@@ -172,10 +196,34 @@ def embedding_vector_radius(embeddings, metric, radius=0.1, probabilistic=True):
 
         if probabilistic:
             vec = (vec - vec.min()) / (vec.max() - vec.min())
+            vec /= vec.sum()
 
         out.append(vec)
 
     return np.array(out)
+
+def set_distance(documents, radius=0.1, probabilistic=True):
+    docs = []
+
+    for document in documents:
+        doc = np.array(document.split(" "))
+
+        docs.append(doc)
+
+    docs = np.array(docs).reshape(-1,1)
+
+    D = similarity_matrix(docs, metric="jaccard")
+
+    # vec = (D <= radius).sum(axis = 0) - 1
+    # print(D.shape, vec)
+    #
+    # if probabilistic:
+    #     vec = (vec - vec.min()) / (vec.max() - vec.min())
+    #     vec /= vec.sum()
+    #
+    # out.append(vec)
+
+    return D
 
 def graph_from_sim(sim, value):
     mask = np.copy(sim)

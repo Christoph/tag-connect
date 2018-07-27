@@ -148,7 +148,7 @@ def graph(G):
 
     py.iplot(fig, filename='networkx')
 
-def cluster_heatmap(vecs, docs, metric="cosine", mode="intersection",  order=False):
+def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order=False):
     if isinstance(vecs, csr_matrix):
         checked = vecs.todense()
     else:
@@ -190,16 +190,20 @@ def cluster_heatmap(vecs, docs, metric="cosine", mode="intersection",  order=Fal
 
     hovertext = list()
 
-    for i in range(0, len(sim)):
-        hovertext.append(list())
+    if docs:
+        for i in range(0, len(sim)):
+            hovertext.append(list())
 
-        for j in range(0, len(sim)):
-            if mode == "intersection":
-                elements = list(l + '<br>' * (n % 10 == 9) for n, l in enumerate(np.intersect1d(docs[i].split(" "), docs[j].split(" "))))
-            elif mode == "difference":
-                elements = list(l + '<br>' * (n % 10 == 9) for n, l in enumerate(np.setdiff1d(docs[i].split(" "), docs[j].split(" "))))
+            for j in range(0, len(sim)):
+                if mode == "intersection":
+                    elements = list(l + '<br>' * (n % 10 == 9) for n, l in enumerate(np.intersect1d(docs[i].split(" "), docs[j].split(" "))))
+                elif mode == "difference":
+                    elements = list(l + '<br>' * (n % 10 == 9) for n, l in enumerate(np.setdiff1d(docs[i].split(" "), docs[j].split(" "))))
 
-            hovertext[i].append(" ".join(elements))
+                hovertext[i].append(" ".join(elements))
+    else:
+        for i in range(0, len(sim)):
+            hovertext.append("none")
 
     heatmap = [
         go.Heatmap(

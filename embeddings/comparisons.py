@@ -43,7 +43,7 @@ sim = embedding.similarity_matrix(vecs, metric)
 # VIS
 vis.simMatrixIntersection(sim, used)
 vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
-vis.graph(embedding.graph_from_sim(sim, 0.5))
+vis.graph(embedding.graph_from_sim(sim, 1.7))
 vis.graph(embedding.graph_from_sim(sim, sim.mean()))
 vis.cluster_heatmap(
     vecs,
@@ -53,7 +53,7 @@ vis.cluster_heatmap(
     order=True)
 vis.scatter(vecs, labels)
 
-out = details.word_sets(used, [6, 7, 9])
+out = details.word_sets(used, [12, 13, 14, 15, 16])
 out = details.group_comp(used, [1, 7, 6], [12, 13, 14, 15])
 
 top_words = helpers.get_top_idf_words(out, tfidf_vectorizer, 10)
@@ -62,11 +62,12 @@ top_words
 texts[12]
 
 # Reduced VIS
-reduced = embedding.reduced(vecs, "svd", 6)
+reduced = embedding.reduced(vecs, "svd", 20)
 reduced_sim = embedding.similarity_matrix(reduced, metric)
 
 vis.simMatrixIntersection(reduced_sim, used)
 vis.scree_plot(reduced_sim, reduced, nonlinear=False, uselda=True, usenmf=False)
+vis.graph(embedding.graph_from_sim(reduced_sim, reduced_sim.mean()))
 vis.graph(embedding.graph_from_sim(reduced_sim, 0.25))
 vis.cluster_heatmap(
     reduced,
