@@ -52,17 +52,19 @@ comparison_metric = "cosine"
 
 # vecs = embedding.embedding_vector(embedding_models, embedding_metric, probabilistic=True)
 # vecs = embedding.embedding_vector_radius(embedding_models, embedding_metric, radius=0.1, probabilistic=True)
-sim = embedding.set_distance(used, radius=0.1, probabilistic=False)
+vecs = embedding.set_vectors(used)
+
+sim = embedding.similarity_matrix(vecs, metric="jaccard")
 
 # VIS
 vis.simMatrixIntersection(sim, used)
 # vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
 vis.graph(embedding.graph_from_sim(sim, 0.6))
 vis.graph(embedding.graph_from_sim(sim, sim.mean()))
-# vis.cluster_heatmap(
-#     vecs,
-#     used,
-#     metric=comparison_metric,
-#     mode="intersection",
-#     order=True)
+vis.cluster_heatmap(
+    vecs,
+    used,
+    metric=comparison_metric,
+    mode="intersection",
+    order=True)
 # vis.scatter(vecs, labels)

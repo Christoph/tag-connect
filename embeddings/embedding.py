@@ -170,6 +170,8 @@ def jaccard(d1, d2):
 
     dist = len(s1.intersection(s2))/len(s1.union(s2))
 
+    print(dist)
+
     return 1 - dist
 
 def embedding_vector(embeddings, metric, probabilistic=False):
@@ -202,7 +204,7 @@ def embedding_vector_radius(embeddings, metric, radius=0.1, probabilistic=True):
 
     return np.array(out)
 
-def set_distance(documents, radius=0.1, probabilistic=True):
+def set_vectors(documents):
     docs = []
 
     for document in documents:
@@ -212,18 +214,7 @@ def set_distance(documents, radius=0.1, probabilistic=True):
 
     docs = np.array(docs).reshape(-1,1)
 
-    D = similarity_matrix(docs, metric="jaccard")
-
-    # vec = (D <= radius).sum(axis = 0) - 1
-    # print(D.shape, vec)
-    #
-    # if probabilistic:
-    #     vec = (vec - vec.min()) / (vec.max() - vec.min())
-    #     vec /= vec.sum()
-    #
-    # out.append(vec)
-
-    return D
+    return docs
 
 def graph_from_sim(sim, value):
     mask = np.copy(sim)

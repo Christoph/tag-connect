@@ -394,7 +394,7 @@ def scree_plot(truth, vecs, metric="cosine", maxdim=300, nonlinear=False, uselda
     layout = dict(
         title='Average similarity between two matrices whereas the second one is dimension reduced',
         xaxis=dict(title = 'Dimension'),
-        yaxis=dict(title = 'Average similarity'),
+        yaxis=dict(title = 'Average similarity', range=[0, 1]),
         )
 
     fig = dict(data=data, layout=layout)

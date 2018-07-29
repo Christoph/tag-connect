@@ -1,4 +1,5 @@
 from importlib import reload
+import numpy as np
 
 import embedding
 import details
@@ -10,6 +11,10 @@ import vis
 
 used = clean_fancy
 used = clean
+
+truth = a = np.zeros([20, 20])
+truth[:10, 10:] = 1
+truth[10:, :10] = 1
 
 # EMBEDDING COMPARISONS
 # Document vectors
@@ -43,6 +48,7 @@ sim = embedding.similarity_matrix(vecs, metric)
 # VIS
 vis.simMatrixIntersection(sim, used)
 vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
+vis.scree_plot(truth, vecs, nonlinear=False, uselda=True, usenmf=False)
 vis.graph(embedding.graph_from_sim(sim, 1.7))
 vis.graph(embedding.graph_from_sim(sim, sim.mean()))
 vis.cluster_heatmap(
