@@ -39,6 +39,13 @@ def tfidf(data):
     norm_vecs = Normalizer().fit_transform(doc_vecs)
     return norm_vecs, vectorizer
 
+def lda(data, components=10):
+    vectorizer = LatentDirichletAllocation(components, learning_method="batch")
+    doc_vecs = vectorizer.fit_transform(data)
+
+    # norm_vecs = Normalizer().fit_transform(doc_vecs)
+    return doc_vecs, vectorizer
+
 def reduced(vecs, type, dim):
     if type == "svd":
         reduced = TruncatedSVD(dim).fit_transform(vecs)
@@ -165,8 +172,8 @@ def similarity_matrix(vecs, metric="cosine", as_distance=True, scaled=True):
     return sim
 
 def jaccard(d1, d2):
-    s1 = set([w[0] for w in d1])
-    s2 = set([w[0] for w in d2])
+    s1 = set([w for w in d1[0]])
+    s2 = set([w for w in d2[0]])
 
     dist = len(s1.intersection(s2))/len(s1.union(s2))
 

@@ -148,11 +148,13 @@ def graph(G):
 
     py.iplot(fig, filename='networkx')
 
-def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order=False):
+def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order=False, truth=None):
     if isinstance(vecs, csr_matrix):
         checked = vecs.todense()
     else:
         checked = vecs
+
+    title = "Ordered Distance Matrix"
 
     # Initialize figure by creating upper dendrogram
     figure = ff.create_dendrogram(
@@ -187,6 +189,10 @@ def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order
     dendro_leaves = list(map(int, dendro_leaves))
 
     sim = embedding.link_sim(checked, dendro_leaves, metric=metric)
+
+    if truth is not None:
+        sim = np.abs(sim - truth)
+        title = "Ordered Error Matrix"
 
     hovertext = list()
 
@@ -238,7 +244,7 @@ def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order
 
     # Edit Layout
     figure['layout'].update({'width':600, 'height':600,
-                             'showlegend':False, 'hovermode': 'closest',
+                             'showlegend':False, 'hovermode': 'closest', 'title':title
                             })
     # Edit xaxis
     figure['layout']['xaxis'].update({'domain': [.15, 1],
@@ -570,8 +576,9 @@ def simMatrix(matrix):
     data=[trace]
     py.iplot(data)
 
-def simMatrixIntersection(matrix, docs):
+def simMatrixIntersection(matrix, docs, truth=None):
     hovertext = list()
+    title = "Distance Matrix"
 
     for i in range(0, len(matrix)):
         hovertext.append(list())
@@ -579,6 +586,10 @@ def simMatrixIntersection(matrix, docs):
         for j in range(0, len(matrix)):
             elements = list(l + '<br>' * (n % 10 == 9) for n, l in enumerate(np.intersect1d(docs[i].split(" "), docs[j].split(" "))))
             hovertext[i].append(" ".join(elements))
+
+    if truth is not None:
+        matrix = np.abs(matrix - truth)
+        title = "Error Matrix"
 
     trace = go.Heatmap(
         z=matrix,
@@ -605,7 +616,7 @@ def simMatrixIntersection(matrix, docs):
     data=[trace]
     fig = go.Figure(data=data)
     fig['layout'].update({'width':600, 'height':600,
-                             'showlegend':False, 'hovermode': 'closest',
+                             'showlegend':False, 'hovermode': 'closest', 'title':title
                              })
 
     py.iplot(fig)
