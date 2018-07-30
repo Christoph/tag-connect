@@ -7,14 +7,16 @@ import helpers
 import vis
 
 # LOAD DATA
-(texts, clean, clean_fancy, labels) = helpers.load_reuters_data()
+(texts, clean, clean_fancy, labels) = helpers.load_reuters_data("more")
 
 used = clean_fancy
 used = clean
 
-truth = a = np.zeros([20, 20])
-truth[:10, 10:] = 1
-truth[10:, :10] = 1
+truth = np.zeros([len(used), len(used)])
+l0 = sum(np.array(labels) == 0)
+
+truth[l0:, :l0] = 1
+truth[:l0, l0:] = 1
 
 # EMBEDDING COMPARISONS
 # Document vectors
@@ -39,10 +41,8 @@ vecs = embedding.tfidf_weighted_average_word_vectors(used, tfidf_vectorizer)
 (clust_labels, dist, vecs, clusterer) = embedding.high_space_binning(
     word_vecs, vocab_vecs, "hdbs")
 
-reload(embedding)
-
-vecs = embedding.set_vectors(used)
-sim = embedding.similarity_matrix(vecs, "jaccard")
+# vecs = embedding.set_vectors(used)
+# sim = embedding.similarity_matrix(vecs, "jaccard")
 
 # reload(embedding)
 # reload(vis)
@@ -50,8 +50,6 @@ sim = embedding.similarity_matrix(vecs, "jaccard")
 # Similarity simMatrix
 metric = "cosine" # cosine, emd, cm
 sim = embedding.similarity_matrix(vecs, metric)
-
-reload(vis)
 
 # VIS
 vis.simMatrixIntersection(sim, used, truth)
@@ -77,7 +75,7 @@ top_words
 texts[12]
 
 # Reduced VIS
-reduced = embedding.reduced(vecs, "svd", 19)
+reduced = embedding.reduced(vecs, "svd", 80)
 reduced_sim = embedding.similarity_matrix(reduced, metric)
 
 vis.simMatrixIntersection(reduced_sim, used, truth)

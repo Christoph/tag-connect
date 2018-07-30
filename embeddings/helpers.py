@@ -48,25 +48,38 @@ def get_top_idf_words(data, vectorizer, n_words=5):
 
     return top_words
 
-def load_reuters_data():
+def load_reuters_data(dataset="reuters"):
     # Raw Texts
     texts = []
 
     # BROWN CORPUS
-    # brown_ids = ["ca16", "cb02", "cc17", "cd12", "ce36", "cf25", "cg22", "ch15", "cj19", "ck04", "cl13", "cm01", "cn15", "cp12", "cr06"]
-    # ca is NEWS, cf is LORE, cn ADVENTURE
-    # brown_ids = ["ca16", "ca12", "ca11", "ca02", "cf21", "cf25", "cf15", "cf06", "cn01", "cn08", "cn13", "cn15"]
-    #
-    # for id in ids:
-    #     texts.append(" ".join(brown.words(fileids=[id])))
+    if dataset == "brown":
+        # ca is NEWS, cf is LORE, cn ADVENTURE
+        brown_ids = ["ca16", "ca12", "ca11", "ca02", "cf21", "cf25", "cf15", "cf06", "cn01", "cn08", "cn13", "cn15"]
+        labels = [0,0,0,0,1,1,1,1,2,2,2,2]
+
+        for id in ids:
+            texts.append(" ".join(brown.words(fileids=[id])))
 
     # REUTERS CORPUS
-    # 10 documents from "tea" and 10 from "zinc"
-    reuters_ids  = ['test/14840', 'test/15198', 'test/15329', 'test/15357', 'test/15540', 'test/15584', 'test/15725', 'test/15737', 'test/16097', 'test/16115', 'test/14882', 'test/16194', 'test/17480', 'test/17486', 'test/17783', 'test/17805', 'test/18337', 'test/18943', 'test/18945', 'test/19431']
-    labels = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
+    if dataset == "reuters":
+        # 10 documents from "tea" and 10 from "zinc"
+        reuters_ids  = ['test/14840', 'test/15198', 'test/15329', 'test/15357', 'test/15540', 'test/15584', 'test/15725', 'test/15737', 'test/16097', 'test/16115', 'test/14882', 'test/16194', 'test/17480', 'test/17486', 'test/17783', 'test/17805', 'test/18337', 'test/18943', 'test/18945', 'test/19431']
+        labels = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
 
-    for id in reuters_ids:
-        texts.append(" ".join(reuters.words(fileids=[id])))
+        for id in reuters_ids:
+            texts.append(" ".join(reuters.words(fileids=[id])))
+
+    # Reuters corpus many articles
+    if dataset == "more":
+        rice = reuters.fileids("rice")
+        tin = reuters.fileids("tin")
+        reuters_ids = rice + tin
+
+        labels = [0 for i in range(0, len(rice))] + [1 for i in range(0, len(tin))]
+
+        for id in reuters_ids:
+            texts.append(" ".join(reuters.words(fileids=[id])))
 
     # texts = [
     #     "Beautiful is better than ugly. Explicit is better than implicit. Simple is better than complex.",
