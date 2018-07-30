@@ -88,7 +88,7 @@ def multi_histogram(prediction, unique=False):
 
     py.iplot(fig)
 
-def graph(G):
+def graph(G, labels):
     pos=nx.spring_layout(G)
     nx.set_node_attributes(G, name="pos", values=pos)
 
@@ -133,7 +133,7 @@ def graph(G):
         x, y = G.node[node]['pos']
         node_trace['x'].append(x)
         node_trace['y'].append(y)
-        node_trace['marker']['color'].append(G.degree(node))
+        node_trace['marker']['color'].append(labels[node])
         node_trace['text'].append(str(node))
 
     fig = go.Figure(data=[edge_trace, node_trace],
@@ -193,6 +193,7 @@ def cluster_heatmap(vecs, docs=None, metric="cosine", mode="intersection", order
     if truth is not None:
         sim = np.abs(sim - truth)
         title = "Ordered Error Matrix"
+        print("Mean error:"+str(sim.mean())+" Sum error:"+str(sim.sum()))
 
     hovertext = list()
 
