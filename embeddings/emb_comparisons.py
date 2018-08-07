@@ -59,8 +59,7 @@ sim = embedding.similarity_matrix(vecs, metric="jaccard")
 # VIS
 vis.simMatrixIntersection(sim, used)
 # vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
-vis.graph(embedding.graph_from_sim(sim, 0.6))
-vis.graph(embedding.graph_from_sim(sim, sim.mean()))
+vis.graph(embedding.graph_from_sim(sim, sim.mean()), labels)
 vis.cluster_heatmap(
     vecs,
     used,

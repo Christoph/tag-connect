@@ -55,8 +55,7 @@ sim = embedding.similarity_matrix(vecs, metric)
 vis.simMatrixIntersection(sim, used, truth)
 vis.scree_plot(sim, vecs, nonlinear=False, uselda=True, usenmf=False)
 vis.scree_plot(truth, vecs, nonlinear=False, uselda=True, usenmf=False)
-# vis.graph(embedding.graph_from_sim(sim, 1.7))
-vis.graph(embedding.graph_from_sim(sim, sim.mean()))
+vis.graph(embedding.graph_from_sim(sim, sim.mean()), labels)
 vis.cluster_heatmap(
     vecs,
     used,
@@ -80,8 +79,7 @@ reduced_sim = embedding.similarity_matrix(reduced, metric)
 
 vis.simMatrixIntersection(reduced_sim, used, truth)
 vis.scree_plot(reduced_sim, reduced, nonlinear=False, uselda=True, usenmf=False)
-vis.graph(embedding.graph_from_sim(reduced_sim, reduced_sim.mean()))
-# vis.graph(embedding.graph_from_sim(reduced_sim, 0.25))
+vis.graph(embedding.graph_from_sim(reduced_sim, (reduced_sim.mean())), labels)
 vis.cluster_heatmap(
     reduced,
     used,
