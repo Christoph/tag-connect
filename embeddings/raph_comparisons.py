@@ -1,12 +1,13 @@
 from importlib import reload
 
-import forchristoph
-import embedding
-import details
-import helpers
-import vis
-import path
-import exam
+import lib.forchristoph as forchristoph
+import lib.path as path
+import lib.exam as exam
+
+import lib.embedding as embedding
+import lib.details as details
+import lib.helpers as helpers
+import lib.vis as vis
 
 import numpy as np
 

@@ -6,10 +6,10 @@ from scipy.stats import wasserstein_distance
 from scipy.stats import entropy
 import numpy as np
 
-import embedding
-import vis
-import helpers
-import cluster_analysis
+import lib.embedding as embedding
+import lib.details as details
+import lib.helpers as helpers
+import lib.vis as vis
 # nlp = spacy.load('en')
 
 # Load data
