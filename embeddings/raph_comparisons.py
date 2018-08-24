@@ -1,18 +1,27 @@
 from importlib import reload
 
-import lib.forchristoph as forchristoph
-import lib.path as path
-import lib.exam as exam
+from hdbscan import HDBSCAN
+from sklearn.cluster import (DBSCAN, SpectralClustering, KMeans)
 
-import lib.embedding as embedding
-import lib.details as details
-import lib.helpers as helpers
-import lib.vis as vis
+from sklearn import metrics
 
+import methods.forchristoph as forchristoph
+
+import methods.embedding as embedding
+import methods.details as details
+import methods.helpers as helpers
+import methods.vis as vis
+import path
+import exam
 import numpy as np
 
 # LOAD DATA
-vecs = np.load('../datasets/paths.npy')
+# vecs = np.load('../datasets/paths.npy')
+labels = np.load('../datasets/labels.npy')
+en_dist = np.load('../datasets/endist.npy')
+em_dist = np.load('../datasets/emdist.npy')
+dlev_dist = np.load('../datasets/dlevdist.npy')
+raph_dist = np.load('../datasets/raphdist.npy')
 # dist = np.load('../datasets/raphdist.npy')
 
 reload(embedding)
@@ -20,20 +29,29 @@ reload(forchristoph)
 # reload(vis)
 
 # Similarity simMatrix
-metric = "raph_earth" # cosine, emd, cm, raph_raph, raph_earth, raph_energy
+metric = "raph_earth"  # cosine, emd, cm, raph_raph, raph_earth, raph_energy
 
-paths = np.array(vecs).reshape(-1,1)
+paths = np.array(vecs).reshape(-1, 1)
 dist = embedding.similarity_matrix(paths, metric, scaled=False)
 
-dist = (dist - dist.min()) / (dist.max() - dist.min())
-sim = 1 - dist
+
+
+ll = [int(l) for l in labels]
+
+en_dist = (en_dist - en_dist.min()) / (en_dist.max() - en_dist.min())
+em_dist = (em_dist - em_dist.min()) / (em_dist.max() - em_dist.min())
+raph_dist = (raph_dist - raph_dist.min()) / (raph_dist.max() - raph_dist.min())
+# sim = 1 - dist
+
+can = DBSCAN().fit_predict(raph_dist)
+metrics.adjusted_rand_score(can, ll)
 
 # VIS
-vis.simMatrix(dist)
-vis.graph(embedding.graph_from_sim(sim, 4))
-vis.graph(embedding.graph_from_sim(sim, sim.mean()))
+vis.simMatrix(raph_dist)
+# vis.graph(embedding.graph_from_sim(sim, 4))
+# vis.graph(embedding.graph_from_sim(sim, sim.mean()))
 vis.cluster_heatmap(
-    vecs,
+    paths,
     metric=metric,
     mode="intersection",
     order=True)

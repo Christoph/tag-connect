@@ -1,9 +1,9 @@
 from importlib import reload
 
-import lib.embedding as embedding
-import lib.details as details
-import lib.helpers as helpers
-import lib.vis as vis
+import methods.embedding as embedding
+import methods.details as details
+import methods.helpers as helpers
+import methods.vis as vis
 
 # LOAD DATA
 (texts, clean, clean_fancy, labels) = helpers.load_reuters_data()
