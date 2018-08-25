@@ -16,5 +16,4 @@ depedencies:
     - scikit-learn
     - scipy
     - textblob
-
-
+    - hdbscan
