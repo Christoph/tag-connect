@@ -31,8 +31,8 @@ reload(forchristoph)
 # Similarity simMatrix
 metric = "raph_earth"  # cosine, emd, cm, raph_raph, raph_earth, raph_energy
 
-paths = np.array(vecs).reshape(-1, 1)
-dist = embedding.similarity_matrix(paths, metric, scaled=False)
+# paths = np.array(vecs).reshape(-1, 1)
+# dist = embedding.similarity_matrix(paths, metric, scaled=False)
 
 
 
@@ -43,7 +43,7 @@ em_dist = (em_dist - em_dist.min()) / (em_dist.max() - em_dist.min())
 raph_dist = (raph_dist - raph_dist.min()) / (raph_dist.max() - raph_dist.min())
 # sim = 1 - dist
 
-can = DBSCAN().fit_predict(raph_dist)
+can = DBSCAN().fit_predict(em_dist)
 metrics.adjusted_rand_score(can, ll)
 
 # VIS
