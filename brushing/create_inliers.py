@@ -11,9 +11,9 @@ for i in range(0, 1000):
     p2 = [50, 60]
     p3 = [80, 70]
 
-    temp.append({ "out": i, "t": 0 })
-    temp.append({ "out": i, "t": 1 })
-    temp.append({ "out": i, "t": 2 })
+    temp.append({"t": 0, "out": i})
+    temp.append({"t": 1, "out": i})
+    temp.append({"t": 2, "out": i})
 
     element["data"] = temp
 
