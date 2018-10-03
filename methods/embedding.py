@@ -230,6 +230,13 @@ def graph_from_sim(sim, value):
 
     return G
 
+def graph_from_dist(dist, value):
+    mask = np.copy(dist)
+    mask[mask > value] = 0
+    G = nx.from_numpy_matrix(mask)
+
+    return G
+
 def HAL(data, reduce=False):
     word_vecs, word_vocab = hal_embedding.HAL(data)
 
