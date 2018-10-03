@@ -17,13 +17,13 @@ import embedding
 import vis
 
 # DATA Loading
-raw = pd.read_csv("../datasets/keyvis_texts.csv")
+raw = np.load("../datasets/full.pkl")
 # raw
 
-data = raw[["Title", "Clusters"]]
+data = raw[["Title", "Clusters", "DOI"]]
 n = len(data)
 # labels = np.zeros(n)
-labels = data["Title"].tolist()
+labels = data.apply(lambda row: " | ".join([row["Title"], row["DOI"]]) + "<br>" + "<br>".join(row["Clusters"].split(";")), axis=1).tolist()
 
 # Create one hot vectors
 enc = MultiLabelBinarizer()
@@ -31,13 +31,41 @@ enc.fit([cluster.split(";") for cluster in data["Clusters"].tolist()])
 
 data['Vector'] = data.apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1)
 # list(enc.classes_)
-
+# data
 vecs = data["Vector"].tolist()
 
+# Analysis
+# Similarity
+metric = "jaccard" # cosine, jaccard, emd, cm
+distance = embedding.similarity_matrix(vecs, metric, as_distance=True)
+
+# vis.simMatrix(distance)
+vis.scree_plot(distance, vecs, nonlinear=False, uselda=False, usenmf=False)
+vis.graph(embedding.graph_from_dist(distance, 0.55), labels)
+# vis.cluster_heatmap(
+#     np.array(vecs),
+#     metric=metric,
+#     mode="intersection",
+#     order=True)
+vis.scatter(vecs, labels)
+vis.scatter_tsne(vecs, labels, 0.1)
 
 
-distances = np.zeros([n, n])
+# Plot local graph for a document
+list(enc.classes_)
 
+element = 0
+local_neigh = np.argwhere(distance[element, :] < 0.75).flatten()
+local_dist = distance[np.ix_(local_neigh,local_neigh)]
+local_labels = np.array(labels)[local_neigh]
+
+vis.graph(embedding.graph_from_dist(local_dist, 0.55), local_labels)
+
+# Plot local leighborhood for keyword
+
+
+# Compute jaccard distance
+jaccard_distances = np.zeros([n, n])
 for i in range(0, n):
     for j in range(0, n):
         a = set(data.iloc[i]["Clusters"].split(";"))
@@ -45,8 +73,4 @@ for i in range(0, n):
 
         jd = len(a.intersection(b))/len(a.union(b))
 
-        distances[i][j] = jd
-
-np.unique(distances)
-
-vis.graph(embedding.graph_from_sim(distances, 0.5), labels)
+        jaccard_distances[i][j] = jd

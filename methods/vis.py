@@ -409,25 +409,22 @@ def scree_plot(truth, vecs, metric="cosine", maxdim=300, nonlinear=False, uselda
     py.iplot(fig)
 
 
-def scatter_tsne(vecs, labels):
+def scatter_tsne(vecs, labels, perplexity=30.0):
     # if isinstance(vecs, np.ndarray):
     #     reduced = TSNE().fit_transform(vecs.toarray())
     if sp.issparse(vecs):
-        reduced = TSNE().fit_transform(vecs.todense())
+        reduced = TSNE(perplexity=perplexity).fit_transform(vecs.todense())
     else:
-        reduced = TSNE().fit_transform(vecs)
-
-    ids = list(range(0, len(reduced)))
+        reduced = TSNE(perplexity=perplexity).fit_transform(vecs)
 
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -445,12 +442,11 @@ def scatter_mds(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -464,12 +460,11 @@ def scatter_svd(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -488,12 +483,11 @@ def scatter(vecs, labels):
     trace1 = go.Scatter(
         x=svd[:, 0],
         y=svd[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=svd_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -503,12 +497,11 @@ def scatter(vecs, labels):
     trace2 = go.Scatter(
         x=pca[:, 0],
         y=pca[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=pca_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -518,12 +511,11 @@ def scatter(vecs, labels):
     trace3 = go.Scatter(
         x=tsne[:, 0],
         y=tsne[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=tsne_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -533,12 +525,11 @@ def scatter(vecs, labels):
     trace4 = go.Scatter(
         x=mds[:, 0],
         y=mds[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=mds_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 

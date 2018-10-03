@@ -152,8 +152,10 @@ def similarity_matrix(vecs, metric="cosine", as_distance=True, scaled=True):
         data_dist = pdist(checked, wasserstein_distance)
     elif metric == "cm":
         data_dist = pdist(checked, energy_distance)
-    elif metric == "jaccard":
+    elif metric == "jaccard_custom":
         data_dist = pdist(checked, lambda x, y: jaccard(x, y))
+    elif metric == "jaccard":
+        data_dist = pdist(checked, "jaccard")
     elif metric == "raph_raph":
         data_dist = pdist(checked, lambda x, y: forchristoph.raphRaphDistFun(x[0], y[0]))
     elif metric == "raph_earth":
