@@ -21,9 +21,17 @@ raw = np.load("../datasets/full.pkl")
 # raw
 
 data = raw[["Title", "Clusters", "DOI"]]
+
+# Remove Unclear from groups/clusters
+data["Clusters"] = data.apply(lambda row: row["Clusters"].replace(";Unclear", "").replace(";;", ";"), axis=1)
 n = len(data)
 # labels = np.zeros(n)
 labels = data.apply(lambda row: " | ".join([row["Title"], row["DOI"]]) + "<br>" + "<br>".join(row["Clusters"].split(";")), axis=1).tolist()
+
+
+
+data
+
 
 # Create one hot vectors
 enc = MultiLabelBinarizer()
@@ -41,7 +49,7 @@ distance = embedding.similarity_matrix(vecs, metric, as_distance=True)
 
 # vis.simMatrix(distance)
 vis.scree_plot(distance, vecs, nonlinear=False, uselda=False, usenmf=False)
-vis.graph(embedding.graph_from_dist(distance, 0.55), labels)
+vis.graph(embedding.graph_from_dist(distance, 0.50), labels)
 # vis.cluster_heatmap(
 #     np.array(vecs),
 #     metric=metric,
@@ -52,17 +60,11 @@ vis.scatter_tsne(vecs, labels, 0.1)
 
 
 # Plot local graph for a document
-list(enc.classes_)
-
-element = 0
-local_neigh = np.argwhere(distance[element, :] < 0.75).flatten()
-local_dist = distance[np.ix_(local_neigh,local_neigh)]
+local_neigh = np.argwhere(distance[1, :] < 0.80).flatten()
+local_dist = distance[np.ix_(local_neigh, local_neigh)]
 local_labels = np.array(labels)[local_neigh]
 
-vis.graph(embedding.graph_from_dist(local_dist, 0.55), local_labels)
-
-# Plot local leighborhood for keyword
-
+vis.graph(embedding.graph_from_dist(local_dist, local_dist.mean()), local_labels)
 
 # Compute jaccard distance
 jaccard_distances = np.zeros([n, n])
