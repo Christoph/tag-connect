@@ -3,6 +3,10 @@ import numpy as np
 from anytree import Node, RenderTree
 from textblob import TextBlob
 
+from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from scipy.spatial.distance import pdist
+
 # DATA Loading
 raw = pd.read_csv("../datasets/keyvis.csv")
 
@@ -36,6 +40,68 @@ len(data.dropna(axis = 0, how = "any"))
 data = data.dropna(axis = 0, how = "any")
 
 # DATA ANALYSIS
+
+# LDA
+
+
+def print_top_words(model, feature_names, n_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        message = "Topic #%d: " % topic_idx
+        message += " ".join([feature_names[i]
+                             for i in topic.argsort()[:-n_top_words - 1:-1]])
+        print(message)
+    print()
+
+def get_top_words(model, feature_names, n_top_words):
+    out = []
+    for topic_idx, topic in enumerate(model.components_):
+        out.append([feature_names[i] for i in topic.argsort()[:-n_top_words - 1:-1]])
+    return out
+
+vectorizers = []
+ldas = []
+
+type = "tf"
+n_features = 10
+
+for i in range(0, 10):
+    if type == "tfidf":
+        vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words='english')
+    else:
+        vectorizer = CountVectorizer(max_df=0.95, min_df=2, stop_words='english')
+
+    vecs = vectorizer.fit_transform(data["abstract"].tolist())
+    lda = LatentDirichletAllocation(learning_method="batch").fit(vecs)
+
+    vectorizers.append(vectorizer)
+    ldas.append(lda)
+
+
+[print_top_words(lda, vectorizer.get_feature_names(), n_features) for lda, vectorizer in zip(ldas, vectorizers)]
+words = [[set(d) for d in get_top_words(lda, vectorizer.get_feature_names(), n_features)] for lda, vectorizer in zip(ldas, vectorizers)]
+
+distances = np.eye(len(words))
+intersections = np.eye(len(words), dtype=object)
+differences = np.eye(len(words), dtype=object)
+
+for i, model1 in enumerate(words):
+    for j, model2 in enumerate(words):
+        temp = np.eye(n_features)
+        inter = np.eye(n_features, dtype=object)
+        diff = np.eye(n_features, dtype=object)
+        for k, t1 in enumerate(model1):
+            for l, t2 in enumerate(model2):
+                temp[k][l] = 1 - len(t1.intersection(t2))/len(t1.union(t2))
+
+                inter[k][l] = " ".join(t1.intersection(t2))
+                diff[k][l] = " ".join(t1.symmetric_difference(t2))
+
+        distances[i][j] = temp.mean()
+        intersections[i][j] = inter
+        differences[i][j] = diff
+
+intersections[0, 0:4]
+differences[0, 0:4]
 
 # COUNTS
 counts = []

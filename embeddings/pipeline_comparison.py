@@ -1,9 +1,12 @@
 from importlib import reload
+from os import path
+import sys
+sys.path.append(path.abspath('../methods'))
 
-import lib.embedding as embedding
-import lib.details as details
-import lib.helpers as helpers
-import lib.vis as vis
+import embedding
+import details
+import helpers
+import vis
 
 # LOAD DATA
 (texts, clean, clean_fancy, labels) = helpers.load_reuters_data()

@@ -10,7 +10,7 @@ from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
                                    TruncatedSVD)
 from sklearn.manifold import MDS, TSNE
 
-import methods.embedding as embedding
+import embedding
 
 py.init_notebook_mode()
 
@@ -109,7 +109,7 @@ def graph(G, labels):
         x=[],
         y=[],
         text=[],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
         hoverinfo='text',
         marker=dict(
@@ -129,12 +129,12 @@ def graph(G, labels):
             ),
             line=dict(width=2)))
 
-    for node in G.nodes():
+    for node, label in zip(G.nodes(), labels):
         x, y = G.node[node]['pos']
         node_trace['x'].append(x)
         node_trace['y'].append(y)
         node_trace['marker']['color'].append(labels[node])
-        node_trace['text'].append(str(node))
+        node_trace['text'].append(str(label))
 
     fig = go.Figure(data=[edge_trace, node_trace],
                     layout=go.Layout(

@@ -13,8 +13,8 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import Normalizer
 
-import methods.hal_embedding as hal_embedding
-import methods.forchristoph as forchristoph
+import hal_embedding
+import forchristoph
 
 from importlib import reload
 

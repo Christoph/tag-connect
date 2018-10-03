@@ -5,11 +5,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import wasserstein_distance
 from scipy.stats import entropy
 import numpy as np
+from os import path
+import sys
+sys.path.append(path.abspath('../methods'))
 
-import methods.embedding as embedding
-import methods.details as details
-import methods.helpers as helpers
-import methods.vis as vis
+import embedding
+import details
+import helpers
+import vis
 # nlp = spacy.load('en')
 
 # Load data

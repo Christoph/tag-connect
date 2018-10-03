@@ -2,18 +2,22 @@ from importlib import reload
 
 from hdbscan import HDBSCAN
 from sklearn.cluster import (DBSCAN, SpectralClustering, KMeans)
+import numpy as np
 
 from sklearn import metrics
 
-import methods.forchristoph as forchristoph
+from os import path
+import sys
+sys.path.append(path.abspath('../methods'))
 
-import methods.embedding as embedding
-import methods.details as details
-import methods.helpers as helpers
-import methods.vis as vis
+import embedding
+import details
+import helpers
+import vis
+import forchristoph
 import path
 import exam
-import numpy as np
+
 
 # LOAD DATA
 # vecs = np.load('../datasets/paths.npy')
