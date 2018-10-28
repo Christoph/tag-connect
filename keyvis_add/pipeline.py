@@ -18,38 +18,46 @@ import vis
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
-# raw
 
+texts = raw[["Fulltext"]]
 data = raw[["Title", "Clusters", "DOI"]]
 
+# texts.iloc[1]["Fulltext"]
+
 # Remove Unclear from groups/clusters
-data["Clusters"] = data.apply(lambda row: row["Clusters"].replace(";Unclear", "").replace(";;", ";"), axis=1)
+data["Clusters"] = data.apply(
+    lambda row: row["Clusters"]
+    .replace(";Unclear", "")
+    .replace(";;", ";"), axis=1
+    )
+
 n = len(data)
 # labels = np.zeros(n)
-labels = data.apply(lambda row: " | ".join([row["Title"], row["DOI"]]) + "<br>" + "<br>".join(row["Clusters"].split(";")), axis=1).tolist()
-
-
-
-data
-
+labels = data.apply(
+    lambda row: " | "
+    .join([row["Title"], row["DOI"]]) + "<br>" + "<br>"
+    .join(row["Clusters"].split(";")), axis=1
+    ).tolist()
 
 # Create one hot vectors
 enc = MultiLabelBinarizer()
 enc.fit([cluster.split(";") for cluster in data["Clusters"].tolist()])
 
-data['Vector'] = data.apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1)
+data['Vector'] = data.apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1
+    )
 # list(enc.classes_)
 # data
 vecs = data["Vector"].tolist()
 
 # Analysis
 # Similarity
-metric = "jaccard" # cosine, jaccard, emd, cm
+metric = "jaccard"  # cosine, jaccard, emd, cm
 distance = embedding.similarity_matrix(vecs, metric, as_distance=True)
 
 # vis.simMatrix(distance)
 vis.scree_plot(distance, vecs, nonlinear=False, uselda=False, usenmf=False)
-vis.graph(embedding.graph_from_dist(distance, 0.50), labels)
+vis.graph(embedding.graph_from_dist(distance, 0.60), labels)
 # vis.cluster_heatmap(
 #     np.array(vecs),
 #     metric=metric,
@@ -64,7 +72,9 @@ local_neigh = np.argwhere(distance[1, :] < 0.80).flatten()
 local_dist = distance[np.ix_(local_neigh, local_neigh)]
 local_labels = np.array(labels)[local_neigh]
 
-vis.graph(embedding.graph_from_dist(local_dist, local_dist.mean()), local_labels)
+vis.graph(
+    embedding.graph_from_dist(local_dist, local_dist.mean()), local_labels
+    )
 
 # Compute jaccard distance
 jaccard_distances = np.zeros([n, n])
