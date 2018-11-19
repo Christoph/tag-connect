@@ -1,7 +1,6 @@
 from importlib import reload
 import pandas as pd
 import numpy as np
-from anytree import Node, RenderTree
 from textblob import TextBlob
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -30,7 +29,7 @@ labels = data.apply(lambda row: " | ".join([row["Title"], row["DOI"]]) + "<br>" 
 
 
 
-data
+# data
 
 
 # Create one hot vectors
