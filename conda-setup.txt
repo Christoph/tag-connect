@@ -1,0 +1,2 @@
+# Run following line after environment creation
+conda install gensim hdbscan jedi keras networkx numpy pandas plotly scikit-learn scipy spacy textblob

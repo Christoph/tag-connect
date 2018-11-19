@@ -7,20 +7,19 @@ from scipy.cluster.hierarchy import (cophenet, fcluster, leaves_list, linkage)
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import energy_distance, wasserstein_distance
 from sklearn.cluster import (DBSCAN, AffinityPropagation, Birch, KMeans)
-from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
-                                   TruncatedSVD)
+from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation, TruncatedSVD)
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import Normalizer
 
-import hal_embedding
-import forchristoph
+# import hal_embedding
+# import forchristoph
 
-from importlib import reload
+# from importlib import reload
 
-reload(forchristoph)
+# reload(forchristoph)
 
-nlp = spacy.load('en')
+nlp = spacy.load('en_core_web_md')
 
 def count(data):
     vectorizer = CountVectorizer()

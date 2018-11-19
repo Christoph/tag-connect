@@ -1,6 +1,11 @@
 from importlib import reload
+
 import pandas as pd
 import numpy as np
+<<<<<<< HEAD
+=======
+# from anytree import Node, RenderTree
+>>>>>>> bab1fb70303c61fb24a7e29f7121edad5d68d48b
 from textblob import TextBlob
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -17,38 +22,45 @@ import vis
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
-# raw
-
-data = raw[["Title", "Clusters", "DOI"]]
 
 # Remove Unclear from groups/clusters
-data["Clusters"] = data.apply(lambda row: row["Clusters"].replace(";Unclear", "").replace(";;", ";"), axis=1)
-n = len(data)
-# labels = np.zeros(n)
-labels = data.apply(lambda row: " | ".join([row["Title"], row["DOI"]]) + "<br>" + "<br>".join(row["Clusters"].split(";")), axis=1).tolist()
+# raw["Clusters"] = data.apply(
+#     lambda row: row["Clusters"]
+#     .replace(";Unclear", "")
+#     .replace(";;", ";"), axis=1
+#     )
 
+# train/test split
+test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
+train = raw.drop(test.index)  # len = 1280
 
+dimensions = ["Fulltext", "Abstract", "Keywords", "Title"]
+labels = ["Clusters"]
 
+<<<<<<< HEAD
 # data
+=======
+# vectorization/embedding
+# x
+x_train = train[dimensions]
+>>>>>>> bab1fb70303c61fb24a7e29f7121edad5d68d48b
 
-
-# Create one hot vectors
+# y
 enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";") for cluster in data["Clusters"].tolist()])
+enc.fit([cluster.split(";") for cluster in train[labels]["Clusters"].tolist()])
 
-data['Vector'] = data.apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1)
-# list(enc.classes_)
-# data
-vecs = data["Vector"].tolist()
+y_train = train[labels].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values
+
+# prepare for visualization
 
 # Analysis
 # Similarity
-metric = "jaccard" # cosine, jaccard, emd, cm
-distance = embedding.similarity_matrix(vecs, metric, as_distance=True)
+metric = "jaccard"  # cosine, jaccard, emd, cm
+ distance = embedding.similarity_matrix(y_train, metric, as_distance=True)
 
 # vis.simMatrix(distance)
 vis.scree_plot(distance, vecs, nonlinear=False, uselda=False, usenmf=False)
-vis.graph(embedding.graph_from_dist(distance, 0.50), labels)
+vis.graph(embedding.graph_from_dist(distance, 0.60), labels)
 # vis.cluster_heatmap(
 #     np.array(vecs),
 #     metric=metric,
@@ -63,7 +75,9 @@ local_neigh = np.argwhere(distance[1, :] < 0.80).flatten()
 local_dist = distance[np.ix_(local_neigh, local_neigh)]
 local_labels = np.array(labels)[local_neigh]
 
-vis.graph(embedding.graph_from_dist(local_dist, local_dist.mean()), local_labels)
+vis.graph(
+    embedding.graph_from_dist(local_dist, local_dist.mean()), local_labels
+    )
 
 # Compute jaccard distance
 jaccard_distances = np.zeros([n, n])
