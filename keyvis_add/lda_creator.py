@@ -6,16 +6,19 @@ from textblob import TextBlob
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
-from sklearn.preprocessing import MultiLabelBinarizer
-from gensim import corpora, models, matutils
+from sklearn.preprocessing import MultiLabelBinarizer, LabelBinarizer
+from nltk.corpus import reuters, brown
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import LinearSVC, SVC
+from sklearn import metrics
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.model_selection import cross_val_score
 
 # Add general functions to the project
 from os import path
 import sys
 sys.path.append(path.abspath('../methods'))
-
-import embedding
-import vis
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
@@ -53,19 +56,38 @@ fulltext_test = fulltext_tfidf.transform(test["Fulltext"])
 # LatentDirichletAllocation
 lda = LatentDirichletAllocation(learning_method="batch")
 abstract_lda = lda.fit_transform(abstract_train)
-abstract_perp = lda.perplexity(abstract_test)
-abstract_perp
+
 
 lda = LatentDirichletAllocation(learning_method="batch")
 fulltext_lda = lda.fit_transform(fulltext_train)
-fulltext_perp = lda.perplexity(fulltext_test)
-fulltext_perp
 
+# Articles
 
-# gensim version
-texts = [[word for word in document.lower().split()] for document in raw["Abstract"]]
-dct = corpora.Dictionary(texts)
-corpus = [dct.doc2bow(line) for line in texts]
+articles = pd.read_csv("../datasets/articles.csv")
+articles["publication"].unique()
+articles
 
-gensim_lda = models.LdaModel(corpus, num_topics=10)
-gensim_lda.
+# y
+y = articles["publication"]
+
+# x
+title_tfidf = TfidfVectorizer().fit(articles["title"])
+title_vecs = title_tfidf.transform(articles["title"])
+
+content_tfidf = TfidfVectorizer().fit(articles["content"])
+content_vecs = content_tfidf.transform(articles["content"])
+
+# clf = AdaBoostClassifier(n_estimators=200, learning_rate=0.1)
+clf = RandomForestClassifier(n_estimators=15)
+
+scores = cross_val_score(clf, title_vecs, y, cv=5)
+
+scores
+
+clf.fit(title_vecs, y)
+predicted = clf.predict(title_vecs)
+
+metrics.average_precision_score(y, predicted)
+
+print(metrics.classification_report(y, predicted))
+metrics.confusion_matrix(y, predicted)
