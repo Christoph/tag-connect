@@ -2,10 +2,6 @@ from importlib import reload
 
 import pandas as pd
 import numpy as np
-<<<<<<< HEAD
-=======
-# from anytree import Node, RenderTree
->>>>>>> bab1fb70303c61fb24a7e29f7121edad5d68d48b
 from textblob import TextBlob
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -34,16 +30,10 @@ raw = np.load("../datasets/full.pkl")
 test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
 train = raw.drop(test.index)  # len = 1280
 
-dimensions = ["Fulltext", "Abstract", "Keywords", "Title"]
+
 labels = ["Clusters"]
 
-<<<<<<< HEAD
 # data
-=======
-# vectorization/embedding
-# x
-x_train = train[dimensions]
->>>>>>> bab1fb70303c61fb24a7e29f7121edad5d68d48b
 
 # y
 enc = MultiLabelBinarizer()
