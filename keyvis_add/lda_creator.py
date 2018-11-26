@@ -14,6 +14,7 @@ from sklearn.svm import LinearSVC, SVC
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Add general functions to the project
 from os import path
@@ -31,63 +32,97 @@ raw = np.load("../datasets/full.pkl")
 #     )
 
 # train/test split
-test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
-train = raw.drop(test.index)  # len = 1280
+# test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
+# train = raw.drop(test.index)  # len = 1280
 label_column = ["Clusters"]
 
 # data
-
 # y
-enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";") for cluster in train[label_column]["Clusters"].tolist()])
-
-y_train = train[label_column].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values
+y = np.array(raw["Title"])
 
 # x
 abstract_tfidf = TfidfVectorizer().fit(raw["Abstract"])
-abstract_train = abstract_tfidf.transform(train["Abstract"])
-abstract_test = abstract_tfidf.transform(test["Abstract"])
+abstract_train = abstract_tfidf.transform(raw["Abstract"])
 
 fulltext_tfidf = TfidfVectorizer().fit(raw["Fulltext"])
-fulltext_train = fulltext_tfidf.transform(train["Fulltext"])
-fulltext_test = fulltext_tfidf.transform(test["Fulltext"])
+fulltext_train = fulltext_tfidf.transform(raw["Fulltext"])
 
 
 # LatentDirichletAllocation
-lda = LatentDirichletAllocation(learning_method="batch")
-abstract_lda = lda.fit_transform(abstract_train)
+def test_settings(n_dim = 10, type = "abstract"):
+    if type == "abstract":
+        lda = LatentDirichletAllocation(n_dim, learning_method="batch")
+        vecs = lda.fit_transform(abstract_train)
+
+    if type == "fulltext":
+        lda = LatentDirichletAllocation(n_dim, learning_method="batch")
+        vecs = lda.fit_transform(fulltext_train)
+
+    # Analysis
+    similarity = cosine_similarity(vecs)
+
+    # Get closest documents
+    print(y[similarity[156].argsort()[-10:][::-1]])
+    print(y[similarity[357].argsort()[-10:][::-1]])
+    print(y[similarity[982].argsort()[-10:][::-1]])
+
+# Order of operations
+#  abstract 10 - 1 ok 2 meh 3 meh
+#  fulltext 10 - 1 meh 2 ok 3 meh
+#  fulltext 20 - 1 ok 2 meh 3 meh
+#  fulltext 50 - 1 ok 2 meh 3 okmeh
+#  fulltext 100 - 1 ok 2 ok 3 okmeh
+#  fulltext 5 - 1 ok 2 ok 3 okmeh
+# new 3 (1110 -> 982)
+#  fulltext 5 - 1 ok 2 ok 3 ok
+#  fulltext 10 - 1 ok 2 good 3 ok -  best
+#  fulltext 7 - 1 ok 2 good 3 ok
+#  abstract 5 - 1 meh 2 meh 3 meh
+#  abstract 25 - 1 meh 2 meh 3 me
+#  abstract 50 - 1 meh 2 meh 3 me
+#  abstract 100 - 1 meh 2 meh 3 me
+#  abstract 4 - 1 meh 2 meh 3 me
+
+test_settings(n_dim = 4, type = "abstract")
 
 
-lda = LatentDirichletAllocation(learning_method="batch")
-fulltext_lda = lda.fit_transform(fulltext_train)
+def overlapping_settings(a = 10, f = 5, top = 10):
+    lda = LatentDirichletAllocation(a, learning_method="batch")
+    vecs_a = lda.fit_transform(abstract_train)
 
-# Articles
+    lda = LatentDirichletAllocation(f, learning_method="batch")
+    vecs_f = lda.fit_transform(fulltext_train)
 
-articles = pd.read_csv("../datasets/articles.csv")
-articles["publication"].unique()
-articles
+    # Analysis
+    similarity_a = cosine_similarity(vecs_a)
+    similarity_f = cosine_similarity(vecs_f)
 
-# y
-y = articles["publication"]
+    overlap1 = np.intersect1d(y[similarity_a[156].argsort()[-top:][::-1]], y[similarity_f[156].argsort()[-top:][::-1]])
+    overlap2 = np.intersect1d(y[similarity_a[357].argsort()[-top:][::-1]], y[similarity_f[357].argsort()[-top:][::-1]])
+    overlap3 = np.intersect1d(y[similarity_a[982].argsort()[-top:][::-1]], y[similarity_f[982].argsort()[-top:][::-1]])
 
-# x
-title_tfidf = TfidfVectorizer().fit(articles["title"])
-title_vecs = title_tfidf.transform(articles["title"])
+    print(len(overlap1)/top, len(overlap2)/top, len(overlap3)/top)
 
-content_tfidf = TfidfVectorizer().fit(articles["content"])
-content_vecs = content_tfidf.transform(articles["content"])
+def save_settings(a = 10, f = 5):
+    lda = LatentDirichletAllocation(a, learning_method="batch")
+    vecs_a = lda.fit_transform(abstract_train)
 
-# clf = AdaBoostClassifier(n_estimators=200, learning_rate=0.1)
-clf = RandomForestClassifier(n_estimators=15)
+    lda = LatentDirichletAllocation(f, learning_method="batch")
+    vecs_f = lda.fit_transform(fulltext_train)
 
-scores = cross_val_score(clf, title_vecs, y, cv=5)
+    A = pd.DataFrame(vecs_a)
+    A.insert(0, "key", y)
 
-scores
+    F = pd.DataFrame(vecs_f)
+    F.insert(0, "key", y)
 
-clf.fit(title_vecs, y)
-predicted = clf.predict(title_vecs)
+    A.to_csv("abstract.csv")
+    F.to_csv("fulltext.csv")
 
-metrics.average_precision_score(y, predicted)
+# top 10 documents
+# 4/10 = 0.1 0.05 0.05
+overlapping_settings(4, 10, top=20)
 
-print(metrics.classification_report(y, predicted))
-metrics.confusion_matrix(y, predicted)
+
+
+save_settings(4, 10)
