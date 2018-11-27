@@ -70,15 +70,15 @@ n_dim = [4,6,8,10,12,15,20,25,30]
 algorithms = ["lda", "nmf"]
 datasets = ["abstract", "fulltext"]
 
-n_runs_per_setting = 5
+n_runs_per_setting = 10
 topic_consistency_thresholds = [5, 10, 20]
 
 # Create all parameter permutations
-protocol = pd.DataFrame(columns=["Algorithm", "Dataset", "Dimensions", "Doc", "JaccTop5", "JaccTop10", "JaccTop20"])
+protocol = pd.DataFrame(columns=["Algorithm", "Dataset", "Dimensions", "NumberRuns", "Doc", "JaccTop5Median", "JaccTop10Median", "JaccTop20Median"])
 runs = np.stack(np.meshgrid(algorithms, datasets, n_dim), -1).reshape(-1, 3)
 
 # Compute
-for run in runs[8:10]:
+for run in runs:
     ldas = []
     vecs = []
     similarities = []
@@ -94,7 +94,7 @@ for run in runs[8:10]:
 
     # Fill protocol
     row.extend(run)
-
+    row.append(n_runs_per_setting)
     # Compute models
     for iteration in range(0, n_runs_per_setting):
         if run[0] == "lda":
@@ -116,7 +116,7 @@ for run in runs[8:10]:
         for j in range(i+1, len(similarities)):
             doc_sim.append(abs(similarities[i] - similarities[j]).sum())
 
-    row.append(np.mean(doc_sim))
+    row.append(np.median(doc_sim))
     # print(y[similarity1[156].argsort()[-10:][::-1]])
     # print(y[similarity2[156].argsort()[-10:][::-1]])
 
@@ -131,12 +131,11 @@ for run in runs[8:10]:
 
                 top_sim.append(len(topics1.intersection(topics2))/len(topics1.union(topics2)))
 
-        row.append(np.mean(top_sim))
+        row.append(np.median(top_sim))
         # print_top_words(lda1, tfidf.get_feature_names(), 10)
         # print_top_words(lda2, tfidf.get_feature_names(), 10)
 
     protocol = protocol.append(pd.DataFrame([row], columns=protocol.columns))
-
 
 
 protocol
@@ -146,4 +145,5 @@ protocol.to_csv("runs.csv")
 # np.median(vecs1, axis=0)
 # np.std(vecs1, axis=0)
 
+print_top_words(ldas[1], tfidf.get_feature_names(), 10)
 print_top_words(ldas[0], tfidf.get_feature_names(), 10)
