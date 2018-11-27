@@ -126,3 +126,33 @@ overlapping_settings(4, 10, top=20)
 
 
 save_settings(4, 10)
+
+# usecase papers fulltext
+# fulltext nmf vs lda
+# how to compare those two?
+# are similar documents are really similar
+# Top 5 neighbors
+# Documents with very different neighborhoods
+# How to use the embeddings for a recommender system
+
+# Synthetic
+# Same local different global
+# same structure + known perturbations (outliers, only changes in a area)
+# in 2-D its easy but in N-D its really hard
+# Use Case: What if only a few items have some small local distortion -> spread should be
+# -> How big is the impact of an outlier on other pointsself.
+
+# narrative why this data is important is very important! Both usecase and synthetic
+
+
+# Literature
+
+# semi supervised learning for abstracts 50 vs 100 hints whats right. How different are things
+# talk with florian
+
+# Start from one gaussian -> move % elements small amaounts in the local neighborhood
+# Synthetic -> Start clean -> add something -> know how to look for it -> look it
+# usecase: change items locally at one place and compare it
+# improve noise creation by adding only local noise
+# local changes not global changes!
+# TFIDF vs SVD(TFIDF) local structure should be similar. checking the fundamental assumption
