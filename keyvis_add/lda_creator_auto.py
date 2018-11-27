@@ -3,7 +3,7 @@ from importlib import reload
 import pandas as pd
 import numpy as np
 from textblob import TextBlob
-from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.decomposition import LatentDirichletAllocation, NMF
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer, LabelBinarizer
@@ -30,6 +30,15 @@ def print_top_words(model, feature_names, n_top_words):
         print(message)
     print()
 
+
+def get_top_words(model, feature_names, n_top_words):
+    out = []
+    for topic_idx, topic in enumerate(model.components_):
+        topics = [feature_names[i] for i in topic.argsort()[:-n_top_words - 1:-1]]
+        out.extend(topics)
+
+    return set(out)
+
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
 
@@ -50,140 +59,91 @@ label_column = ["Clusters"]
 y = np.array(raw["Title"])
 
 # x
-tfidf = TfidfVectorizer().fit(raw["Abstract"])
-abstract_train = tfidf.transform(raw["Abstract"])
+abstract_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Abstract"])
+abstract_train = abstract_tfidf.transform(raw["Abstract"])
 
-tfidf = TfidfVectorizer().fit(raw["Fulltext"])
-fulltext_train = tfidf.transform(raw["Fulltext"])
+full_text_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Fulltext"])
+fulltext_train = full_text_tfidf.transform(raw["Fulltext"])
 
 # params
 n_dim = [4,6,8,10,12,15,20,25,30]
+algorithms = ["lda", "nmf"]
+datasets = ["abstract", "fulltext"]
+
+n_runs_per_setting = 5
+topic_consistency_thresholds = [5, 10, 20]
+
+# Create all parameter permutations
+protocol = pd.DataFrame(columns=["Algorithm", "Dataset", "Dimensions", "Doc", "JaccTop5", "JaccTop10", "JaccTop20"])
+runs = np.stack(np.meshgrid(algorithms, datasets, n_dim), -1).reshape(-1, 3)
 
 # Compute
-for dim in [16]:
-    lda1 = LatentDirichletAllocation(dim, learning_method="batch")
-    vecs1 = lda1.fit_transform(fulltext_train)
+for run in runs[8:10]:
+    ldas = []
+    vecs = []
+    similarities = []
+    row = []
 
-    lda2 = LatentDirichletAllocation(dim, learning_method="batch")
-    vecs2 = lda2.fit_transform(fulltext_train)
+    # Set variables
+    if run[1] == "abstract":
+        used = abstract_train
+        tfidf = abstract_tfidf
+    if run[1] == "fulltext":
+        used = fulltext_train
+        tfidf = full_text_tfidf
 
-    similarity1 = cosine_similarity(vecs1)
-    similarity2 = cosine_similarity(vecs2)
+    # Fill protocol
+    row.extend(run)
 
+    # Compute models
+    for iteration in range(0, n_runs_per_setting):
+        if run[0] == "lda":
+            lda = LatentDirichletAllocation(int(run[2]), learning_method="batch")
+            vec = lda.fit_transform(used)
+        if run[0] == "nmf":
+            lda = NMF(int(run[2]))
+            vec = lda.fit_transform(used)
+
+        similarity = cosine_similarity(vec)
+
+        ldas.append(lda)
+        vecs.append(vec)
+        similarities.append(similarity)
+
+    # Document neighborhood consistency
+    doc_sim = []
+    for i in range(0, len(similarities)):
+        for j in range(i+1, len(similarities)):
+            doc_sim.append(abs(similarities[i] - similarities[j]).sum())
+
+    row.append(np.mean(doc_sim))
     # print(y[similarity1[156].argsort()[-10:][::-1]])
     # print(y[similarity2[156].argsort()[-10:][::-1]])
 
-    print_top_words(lda1, tfidf.get_feature_names(), 10)
-    print_top_words(lda2, tfidf.get_feature_names(), 10)
+    # Topic consistency
+    for thres in topic_consistency_thresholds:
+        top_sim = []
+
+        for i in range(0, len(similarities)):
+            topics1 = get_top_words(ldas[i], tfidf.get_feature_names(), thres)
+            for j in range(i+1, len(similarities)):
+                topics2 = get_top_words(ldas[j], tfidf.get_feature_names(), thres)
+
+                top_sim.append(len(topics1.intersection(topics2))/len(topics1.union(topics2)))
+
+        row.append(np.mean(top_sim))
+        # print_top_words(lda1, tfidf.get_feature_names(), 10)
+        # print_top_words(lda2, tfidf.get_feature_names(), 10)
+
+    protocol = protocol.append(pd.DataFrame([row], columns=protocol.columns))
 
 
 
+protocol
+protocol.to_csv("runs.csv")
 
-# LatentDirichletAllocation
-def test_settings(n_dim = 10, type = "abstract"):
-    if type == "abstract":
-        lda = LatentDirichletAllocation(n_dim, learning_method="batch")
-        vecs = lda.fit_transform(abstract_train)
+# Filter dimensions
+# np.median(vecs1, axis=0)
+# np.std(vecs1, axis=0)
 
-    if type == "fulltext":
-        lda = LatentDirichletAllocation(n_dim, learning_method="batch")
-        vecs = lda.fit_transform(fulltext_train)
-
-    # Analysis
-    similarity = cosine_similarity(vecs)
-
-    # Get closest documents
-    print(y[similarity[156].argsort()[-10:][::-1]])
-    print(y[similarity[357].argsort()[-10:][::-1]])
-    print(y[similarity[982].argsort()[-10:][::-1]])
-
-# Order of operations
-#  abstract 10 - 1 ok 2 meh 3 meh
-#  fulltext 10 - 1 meh 2 ok 3 meh
-#  fulltext 20 - 1 ok 2 meh 3 meh
-#  fulltext 50 - 1 ok 2 meh 3 okmeh
-#  fulltext 100 - 1 ok 2 ok 3 okmeh
-#  fulltext 5 - 1 ok 2 ok 3 okmeh
-# new 3 (1110 -> 982)
-#  fulltext 5 - 1 ok 2 ok 3 ok
-#  fulltext 10 - 1 ok 2 good 3 ok -  best
-#  fulltext 7 - 1 ok 2 good 3 ok
-#  abstract 5 - 1 meh 2 meh 3 meh
-#  abstract 25 - 1 meh 2 meh 3 me
-#  abstract 50 - 1 meh 2 meh 3 me
-#  abstract 100 - 1 meh 2 meh 3 me
-#  abstract 4 - 1 meh 2 meh 3 me
-
-test_settings(n_dim = 4, type = "abstract")
-
-
-def overlapping_settings(a = 10, f = 5, top = 10):
-    lda = LatentDirichletAllocation(a, learning_method="batch")
-    vecs_a = lda.fit_transform(abstract_train)
-
-    lda = LatentDirichletAllocation(f, learning_method="batch")
-    vecs_f = lda.fit_transform(fulltext_train)
-
-    # Analysis
-    similarity_a = cosine_similarity(vecs_a)
-    similarity_f = cosine_similarity(vecs_f)
-
-    overlap1 = np.intersect1d(y[similarity_a[156].argsort()[-top:][::-1]], y[similarity_f[156].argsort()[-top:][::-1]])
-    overlap2 = np.intersect1d(y[similarity_a[357].argsort()[-top:][::-1]], y[similarity_f[357].argsort()[-top:][::-1]])
-    overlap3 = np.intersect1d(y[similarity_a[982].argsort()[-top:][::-1]], y[similarity_f[982].argsort()[-top:][::-1]])
-
-    print(len(overlap1)/top, len(overlap2)/top, len(overlap3)/top)
-
-def save_settings(a = 10, f = 5):
-    lda = LatentDirichletAllocation(a, learning_method="batch")
-    vecs_a = lda.fit_transform(abstract_train)
-
-    lda = LatentDirichletAllocation(f, learning_method="batch")
-    vecs_f = lda.fit_transform(fulltext_train)
-
-    A = pd.DataFrame(vecs_a)
-    A.insert(0, "key", y)
-
-    F = pd.DataFrame(vecs_f)
-    F.insert(0, "key", y)
-
-    A.to_csv("abstract.csv")
-    F.to_csv("fulltext.csv")
-
-# top 10 documents
-# 4/10 = 0.1 0.05 0.05
-overlapping_settings(4, 10, top=20)
-
-
-
-save_settings(4, 10)
-
-# usecase papers fulltext
-# fulltext nmf vs lda
-# how to compare those two?
-# are similar documents are really similar
-# Top 5 neighbors
-# Documents with very different neighborhoods
-# How to use the embeddings for a recommender system
-
-# Synthetic
-# Same local different global
-# same structure + known perturbations (outliers, only changes in a area)
-# in 2-D its easy but in N-D its really hard
-# Use Case: What if only a few items have some small local distortion -> spread should be
-# -> How big is the impact of an outlier on other pointsself.
-
-# narrative why this data is important is very important! Both usecase and synthetic
-
-
-# Literature
-
-# semi supervised learning for abstracts 50 vs 100 hints whats right. How different are things
-# talk with florian
-
-# Start from one gaussian -> move % elements small amaounts in the local neighborhood
-# Synthetic -> Start clean -> add something -> know how to look for it -> look it
-# usecase: change items locally at one place and compare it
-# improve noise creation by adding only local noise
-# local changes not global changes!
-# TFIDF vs SVD(TFIDF) local structure should be similar. checking the fundamental assumption
+print_top_words(ldas[0], tfidf.get_feature_names(), 10)
