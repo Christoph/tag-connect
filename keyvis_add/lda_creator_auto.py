@@ -137,10 +137,12 @@ for run in runs:
 
     protocol = protocol.append(pd.DataFrame([row], columns=protocol.columns))
 
-
-protocol
+# LDA Fulltext dim 6 is best (drop on 8)
+# LDA Abstract dim 4 is best (far worse then the NMF 4 or 6)
+# NMF Fulltext dim 10 is best (drop on 12)
+# NMF Abstract dim 6 is best (drop on 8)
 protocol.to_csv("runs.csv")
-
+protocol
 # Filter dimensions
 # np.median(vecs1, axis=0)
 # np.std(vecs1, axis=0)
