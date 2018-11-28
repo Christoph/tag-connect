@@ -142,10 +142,51 @@ for run in runs:
 # NMF Fulltext dim 10 is best (drop on 12)
 # NMF Abstract dim 6 is best (drop on 8)
 protocol.to_csv("runs.csv")
-protocol
+
 # Filter dimensions
 # np.median(vecs1, axis=0)
 # np.std(vecs1, axis=0)
 
 print_top_words(ldas[1], tfidf.get_feature_names(), 10)
 print_top_words(ldas[0], tfidf.get_feature_names(), 10)
+
+# Create embeddings
+dois = raw["DOI"]
+
+# LDA_NMF data
+# lda = LatentDirichletAllocation(6, learning_method="batch")
+# vecs_lda = lda.fit_transform(fulltext_train)
+#
+# vecs_lda = np.asarray(vecs_lda, dtype=np.object)
+# vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
+#
+# emb1 = pd.DataFrame(vecs_lda)
+# emb1.to_csv("lda_nmf_1.csv", header=False)
+#
+# nmf = NMF(10)
+# vecs_nmf = nmf.fit_transform(fulltext_train)
+#
+# vecs_nmf = np.asarray(vecs_nmf, dtype=np.object)
+# vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
+#
+# emb2 = pd.DataFrame(vecs_nmf)
+# emb2.to_csv("lda_nmf_2.csv", header=False)
+
+# abstract_fulltext data
+lda = NMF(6)
+vecs_lda = lda.fit_transform(abstract_train)
+
+vecs_lda = np.asarray(vecs_lda, dtype=np.object)
+vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
+
+emb1 = pd.DataFrame(vecs_lda)
+emb1.to_csv("full_abstract_1.csv", header=False)
+
+nmf = NMF(10)
+vecs_nmf = nmf.fit_transform(fulltext_train)
+
+vecs_nmf = np.asarray(vecs_nmf, dtype=np.object)
+vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
+
+emb2 = pd.DataFrame(vecs_nmf)
+emb2.to_csv("full_abstract_2.csv", header=False)
