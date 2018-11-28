@@ -2,6 +2,7 @@ from importlib import reload
 
 import pandas as pd
 import numpy as np
+import spacy
 from textblob import TextBlob
 from sklearn.decomposition import LatentDirichletAllocation, NMF
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -15,12 +16,15 @@ from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics.pairwise import cosine_similarity
+import gensim.corpora as corpora
+from nltk.corpus import stopwords
 
 # Add general functions to the project
 from os import path
 import sys
 sys.path.append(path.abspath('../methods'))
 
+nlp = spacy.load('en_core_web_md', disable=['ner'])
 
 def print_top_words(model, feature_names, n_top_words):
     for topic_idx, topic in enumerate(model.components_):
@@ -38,6 +42,21 @@ def get_top_words(model, feature_names, n_top_words):
         out.extend(topics)
 
     return set(out)
+
+def preprocessing(text, stopwords, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    for sent in text.sents:
+        texts_out.extend([token.lemma_ for token in sent if
+                          token.pos_ in allowed_postags and
+                          token.lemma_ not in stop_words and
+                          not token.like_num and
+                          not token.like_url and
+                          not token.like_email and
+                          not token.lemma_ == "-PRON-" and
+                          token.is_alpha and
+                          len(token.lemma_) > 1])
+    return texts_out
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
@@ -58,12 +77,26 @@ label_column = ["Clusters"]
 # y
 y = np.array(raw["Title"])
 
+
+# preprocessing
+stop_words = stopwords.words('english')
+
+# test = raw.iloc[:100]
+
+docs = [nlp(text) for text in raw["Fulltext"].tolist()]
+clean = [preprocessing(doc, stop_words) for doc in docs]
+
+
 # x
-abstract_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Abstract"])
+abstract_tfidf = TfidfVectorizer(stop_words=stop_words).fit(raw["Abstract"])
 abstract_train = abstract_tfidf.transform(raw["Abstract"])
 
-full_text_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Fulltext"])
+full_text_tfidf = TfidfVectorizer(stop_words=stop_words).fit(raw["Fulltext"])
 fulltext_train = full_text_tfidf.transform(raw["Fulltext"])
+
+id2word = corpora.Dictionary(clean)
+corpus = [id2word.doc2bow(text) for text in clean]
+
 
 # params
 n_dim = [4,6,8,10,12,15,20,25,30]
@@ -161,7 +194,7 @@ dois = raw["DOI"]
 # vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
 #
 # emb1 = pd.DataFrame(vecs_lda)
-# emb1.to_csv("lda_nmf_1.csv", header=False)
+# emb1.to_csv("lda_nmf_1.csv", header=False, index=False)
 #
 # nmf = NMF(10)
 # vecs_nmf = nmf.fit_transform(fulltext_train)
@@ -170,7 +203,7 @@ dois = raw["DOI"]
 # vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
 #
 # emb2 = pd.DataFrame(vecs_nmf)
-# emb2.to_csv("lda_nmf_2.csv", header=False)
+# emb2.to_csv("lda_nmf_2.csv", header=False, index=False)
 
 # abstract_fulltext data
 lda = NMF(6)
@@ -180,7 +213,7 @@ vecs_lda = np.asarray(vecs_lda, dtype=np.object)
 vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
 
 emb1 = pd.DataFrame(vecs_lda)
-emb1.to_csv("full_abstract_1.csv", header=False)
+emb1.to_csv("full_abstract_1.csv", header=False, index=False)
 
 nmf = NMF(10)
 vecs_nmf = nmf.fit_transform(fulltext_train)
@@ -189,4 +222,4 @@ vecs_nmf = np.asarray(vecs_nmf, dtype=np.object)
 vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
 
 emb2 = pd.DataFrame(vecs_nmf)
-emb2.to_csv("full_abstract_2.csv", header=False)
+emb2.to_csv("full_abstract_2.csv", header=False, index=False)
