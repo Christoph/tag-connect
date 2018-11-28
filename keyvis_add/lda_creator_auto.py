@@ -1,5 +1,6 @@
 from importlib import reload
 
+import os
 import pandas as pd
 import numpy as np
 import spacy
@@ -17,6 +18,7 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics.pairwise import cosine_similarity
 import gensim.corpora as corpora
+import gensim
 from nltk.corpus import stopwords
 
 # Add general functions to the project
@@ -43,6 +45,14 @@ def get_top_words(model, feature_names, n_top_words):
 
     return set(out)
 
+def get_top_words_lda(model, n_top_words):
+    out = []
+    for topic_idx, topic in enumerate(model.get_topics()):
+        topics = model.get_topic_terms(2, topn=n_top_words)
+        out.extend(topics)
+
+    return set(out)
+
 def preprocessing(text, stopwords, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']):
     """https://spacy.io/api/annotation"""
     texts_out = []
@@ -58,50 +68,46 @@ def preprocessing(text, stopwords, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV'
                           len(token.lemma_) > 1])
     return texts_out
 
+def lemmatization(text, stopwords):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    for sent in text.sents:
+        texts_out.extend([token.lemma_ for token in sent if
+                          token.lemma_ not in stop_words and
+                          not token.lemma_ == "-PRON-"])
+    return texts_out
+
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
-
-# Remove Unclear from groups/clusters
-# raw["Clusters"] = data.apply(
-#     lambda row: row["Clusters"]
-#     .replace(";Unclear", "")
-#     .replace(";;", ";"), axis=1
-#     )
-
-# train/test split
-# test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
-# train = raw.drop(test.index)  # len = 1280
-label_column = ["Clusters"]
-
-# data
-# y
-y = np.array(raw["Title"])
-
 
 # preprocessing
 stop_words = stopwords.words('english')
 
-# test = raw.iloc[:100]
+abstracts = [nlp(text) for text in raw["Abstract"].tolist()]
+abstract_lemma = [lemmatization(ab, [stopwords]) for ab in abstracts]
 
 docs = [nlp(text) for text in raw["Fulltext"].tolist()]
-clean = [preprocessing(doc, stop_words) for doc in docs]
+full_lemma = [lemmatization(doc, stop_words) for doc in docs]
+full_clean = [preprocessing(doc, stop_words) for doc in docs]
 
-
-# x
-abstract_tfidf = TfidfVectorizer(stop_words=stop_words).fit(raw["Abstract"])
-abstract_train = abstract_tfidf.transform(raw["Abstract"])
-
-full_text_tfidf = TfidfVectorizer(stop_words=stop_words).fit(raw["Fulltext"])
-fulltext_train = full_text_tfidf.transform(raw["Fulltext"])
-
-id2word = corpora.Dictionary(clean)
-corpus = [id2word.doc2bow(text) for text in clean]
-
+# id2word = corpora.Dictionary(abstract_lemma)
+# corpus = [id2word.doc2bow(text) for text in abstract_lemma]
+#
+# model = gensim.models.ldamodel.LdaModel(corpus=corpus,
+#                                         id2word=id2word,
+#                                         num_topics=5,
+#                                         update_every=1,
+#                                         chunksize=100,
+#                                         passes=10,
+#                                         alpha='auto',
+#                                         per_word_topics=False)
+#
+# vec = [gensim.matutils.sparse2full(spa, 5) for spa in model[corpus]]
 
 # params
-n_dim = [4,6,8,10,12,15,20,25,30]
+n_dim = [4,6,8,10,12,15,20]
 algorithms = ["lda", "nmf"]
-datasets = ["abstract", "fulltext"]
+datasets = ["lemma_abstract", "lemma_fulltext", "clean_fulltext"]
 
 n_runs_per_setting = 10
 topic_consistency_thresholds = [5, 10, 20]
@@ -118,12 +124,27 @@ for run in runs:
     row = []
 
     # Set variables
-    if run[1] == "abstract":
-        used = abstract_train
-        tfidf = abstract_tfidf
-    if run[1] == "fulltext":
-        used = fulltext_train
-        tfidf = full_text_tfidf
+    if run[1] == "lemma_abstract":
+        texts = [" ".join(text) for text in abstract_lemma]
+        tfidf = TfidfVectorizer().fit(texts)
+        used = tfidf.transform(texts)
+
+        id2word = corpora.Dictionary(abstract_lemma)
+        corpus = [id2word.doc2bow(text) for text in abstract_lemma]
+    if run[1] == "lemma_fulltext":
+        texts = [" ".join(text) for text in full_lemma]
+        tfidf = TfidfVectorizer().fit(texts)
+        used = tfidf.transform(texts)
+
+        id2word = corpora.Dictionary(full_lemma)
+        corpus = [id2word.doc2bow(text) for text in full_lemma]
+    if run[1] == "clean_fulltext":
+        texts = [" ".join(text) for text in full_clean]
+        tfidf = TfidfVectorizer().fit(texts)
+        used = tfidf.transform(texts)
+
+        id2word = corpora.Dictionary(full_clean)
+        corpus = [id2word.doc2bow(text) for text in full_clean]
 
     # Fill protocol
     row.extend(run)
@@ -131,15 +152,22 @@ for run in runs:
     # Compute models
     for iteration in range(0, n_runs_per_setting):
         if run[0] == "lda":
-            lda = LatentDirichletAllocation(int(run[2]), learning_method="batch")
-            vec = lda.fit_transform(used)
+            model = gensim.models.ldamodel.LdaModel(corpus=corpus,
+                                                    id2word=id2word,
+                                                    num_topics=run[2],
+                                                    update_every=1,
+                                                    chunksize=100,
+                                                    passes=10,
+                                                    alpha='auto',
+                                                    per_word_topics=False)
+            vec = [gensim.matutils.sparse2full(spa, int(run[2])) for spa in model[corpus]]
         if run[0] == "nmf":
-            lda = NMF(int(run[2]))
-            vec = lda.fit_transform(used)
+            model = NMF(int(run[2]))
+            vec = model.fit_transform(used)
 
         similarity = cosine_similarity(vec)
 
-        ldas.append(lda)
+        ldas.append(model)
         vecs.append(vec)
         similarities.append(similarity)
 
@@ -158,9 +186,16 @@ for run in runs:
         top_sim = []
 
         for i in range(0, len(similarities)):
-            topics1 = get_top_words(ldas[i], tfidf.get_feature_names(), thres)
+            if run[0] == "nmf":
+                topics1 = get_top_words(ldas[i], tfidf.get_feature_names(), thres)
+            if run[0] == "lda":
+                topics1 = get_top_words_lda(ldas[i], thres)
+                pass
             for j in range(i+1, len(similarities)):
-                topics2 = get_top_words(ldas[j], tfidf.get_feature_names(), thres)
+                if run[0] == "nmf":
+                    topics2 = get_top_words(ldas[i], tfidf.get_feature_names(), thres)
+                if run[0] == "lda":
+                    topics2 = get_top_words_lda(ldas[i], thres)
 
                 top_sim.append(len(topics1.intersection(topics2))/len(topics1.union(topics2)))
 
@@ -170,40 +205,43 @@ for run in runs:
 
     protocol = protocol.append(pd.DataFrame([row], columns=protocol.columns))
 
+# Results using sklearn LDA
 # LDA Fulltext dim 6 is best (drop on 8)
 # LDA Abstract dim 4 is best (far worse then the NMF 4 or 6)
 # NMF Fulltext dim 10 is best (drop on 12)
 # NMF Abstract dim 6 is best (drop on 8)
+# Results using gensim LDA + preprosessing with spacy
+
 protocol.to_csv("runs.csv")
 
 # Filter dimensions
 # np.median(vecs1, axis=0)
 # np.std(vecs1, axis=0)
 
-print_top_words(ldas[1], tfidf.get_feature_names(), 10)
-print_top_words(ldas[0], tfidf.get_feature_names(), 10)
+# print_top_words(ldas[1], tfidf.get_feature_names(), 10)
+# print_top_words(ldas[0], tfidf.get_feature_names(), 10)
 
 # Create embeddings
 dois = raw["DOI"]
 
 # LDA_NMF data
-# lda = LatentDirichletAllocation(6, learning_method="batch")
-# vecs_lda = lda.fit_transform(fulltext_train)
-#
-# vecs_lda = np.asarray(vecs_lda, dtype=np.object)
-# vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
-#
-# emb1 = pd.DataFrame(vecs_lda)
-# emb1.to_csv("lda_nmf_1.csv", header=False, index=False)
-#
-# nmf = NMF(10)
-# vecs_nmf = nmf.fit_transform(fulltext_train)
-#
-# vecs_nmf = np.asarray(vecs_nmf, dtype=np.object)
-# vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
-#
-# emb2 = pd.DataFrame(vecs_nmf)
-# emb2.to_csv("lda_nmf_2.csv", header=False, index=False)
+lda = LatentDirichletAllocation(6, learning_method="batch")
+vecs_lda = lda.fit_transform(fulltext_train)
+
+vecs_lda = np.asarray(vecs_lda, dtype=np.object)
+vecs_lda = np.insert(vecs_lda, 0, dois, axis=1)
+
+emb1 = pd.DataFrame(vecs_lda)
+emb1.to_csv("lda_nmf_1.csv", header=False, index=False)
+
+nmf = NMF(10)
+vecs_nmf = nmf.fit_transform(fulltext_train)
+
+vecs_nmf = np.asarray(vecs_nmf, dtype=np.object)
+vecs_nmf = np.insert(vecs_nmf, 0, dois, axis=1)
+
+emb2 = pd.DataFrame(vecs_nmf)
+emb2.to_csv("lda_nmf_2.csv", header=False, index=False)
 
 # abstract_fulltext data
 lda = NMF(6)
