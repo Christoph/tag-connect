@@ -168,14 +168,18 @@ for run in runs:
     # Compute models
     for iteration in range(0, n_runs_per_setting):
         if run[0] == "lda":
-            model = gensim.models.ldamodel.LdaModel(corpus=corpus,
-                                                    id2word=id2word,
-                                                    num_topics=run[2],
-                                                    update_every=1,
-                                                    chunksize=100,
-                                                    passes=10,
-                                                    alpha='auto',
-                                                    per_word_topics=False)
+            model = gensim.models.LdaMulticore(corpus=corpus,
+                                               id2word=id2word,
+                                               num_topics=int(run[2]),
+                                               workers=3)
+            # model = gensim.models.ldamodel.LdaModel(corpus=corpus,
+            #                                         id2word=id2word,
+            #                                         num_topics=int(run[2]),
+            #                                         update_every=1,
+            #                                         chunksize=100,
+            #                                         passes=10,
+            #                                         alpha='auto',
+            #                                         per_word_topics=False)
             vec = [gensim.matutils.sparse2full(spa, int(run[2])) for spa in model[corpus]]
         if run[0] == "nmf":
             model = NMF(int(run[2]))
@@ -240,14 +244,10 @@ vec = model.fit_transform(used)
 # LDA
 id2word = corpora.Dictionary(full_clean)
 corpus = [id2word.doc2bow(text) for text in full_clean]
-model = gensim.models.ldamodel.LdaModel(corpus=corpus,
+model = gensim.models.LdaMulticore(corpus=corpus,
                                         id2word=id2word,
                                         num_topics=20,
-                                        update_every=1,
-                                        chunksize=100,
-                                        passes=10,
-                                        alpha='auto',
-                                        per_word_topics=False)
+                                        workers=3)
 
 vec = [gensim.matutils.sparse2full(spa, 20) for spa in model[corpus]]
 
