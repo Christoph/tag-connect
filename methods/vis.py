@@ -10,7 +10,7 @@ from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
                                    TruncatedSVD)
 from sklearn.manifold import MDS, TSNE
 
-import methods.embedding as embedding
+import embedding
 
 py.init_notebook_mode()
 
@@ -109,7 +109,7 @@ def graph(G, labels):
         x=[],
         y=[],
         text=[],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
         hoverinfo='text',
         marker=dict(
@@ -129,12 +129,12 @@ def graph(G, labels):
             ),
             line=dict(width=2)))
 
-    for node in G.nodes():
+    for node, label in zip(G.nodes(), labels):
         x, y = G.node[node]['pos']
         node_trace['x'].append(x)
         node_trace['y'].append(y)
         node_trace['marker']['color'].append(labels[node])
-        node_trace['text'].append(str(node))
+        node_trace['text'].append(str(label))
 
     fig = go.Figure(data=[edge_trace, node_trace],
                     layout=go.Layout(
@@ -409,25 +409,22 @@ def scree_plot(truth, vecs, metric="cosine", maxdim=300, nonlinear=False, uselda
     py.iplot(fig)
 
 
-def scatter_tsne(vecs, labels):
+def scatter_tsne(vecs, labels, perplexity=30.0):
     # if isinstance(vecs, np.ndarray):
     #     reduced = TSNE().fit_transform(vecs.toarray())
     if sp.issparse(vecs):
-        reduced = TSNE().fit_transform(vecs.todense())
+        reduced = TSNE(perplexity=perplexity).fit_transform(vecs.todense())
     else:
-        reduced = TSNE().fit_transform(vecs)
-
-    ids = list(range(0, len(reduced)))
+        reduced = TSNE(perplexity=perplexity).fit_transform(vecs)
 
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -445,12 +442,11 @@ def scatter_mds(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -464,12 +460,11 @@ def scatter_svd(vecs, labels):
     trace = go.Scatter(
         x=reduced[:, 0],
         y=reduced[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -488,12 +483,11 @@ def scatter(vecs, labels):
     trace1 = go.Scatter(
         x=svd[:, 0],
         y=svd[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=svd_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -503,12 +497,11 @@ def scatter(vecs, labels):
     trace2 = go.Scatter(
         x=pca[:, 0],
         y=pca[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=pca_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -518,12 +511,11 @@ def scatter(vecs, labels):
     trace3 = go.Scatter(
         x=tsne[:, 0],
         y=tsne[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=tsne_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 
@@ -533,12 +525,11 @@ def scatter(vecs, labels):
     trace4 = go.Scatter(
         x=mds[:, 0],
         y=mds[:, 1],
-        mode='markers+text',
+        mode='markers',
         textposition='bottom center',
-        text=mds_ids,
+        text=labels,
         marker=dict(
             size=14,
-            color=labels
             )
     )
 

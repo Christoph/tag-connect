@@ -7,20 +7,19 @@ from scipy.cluster.hierarchy import (cophenet, fcluster, leaves_list, linkage)
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import energy_distance, wasserstein_distance
 from sklearn.cluster import (DBSCAN, AffinityPropagation, Birch, KMeans)
-from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation,
-                                   TruncatedSVD)
+from sklearn.decomposition import (NMF, PCA, LatentDirichletAllocation, TruncatedSVD)
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import Normalizer
 
-import methods.hal_embedding as hal_embedding
-import methods.forchristoph as forchristoph
+# import hal_embedding
+# import forchristoph
 
-from importlib import reload
+# from importlib import reload
 
-reload(forchristoph)
+# reload(forchristoph)
 
-nlp = spacy.load('en')
+nlp = spacy.load('en_core_web_md')
 
 def count(data):
     vectorizer = CountVectorizer()
@@ -152,8 +151,10 @@ def similarity_matrix(vecs, metric="cosine", as_distance=True, scaled=True):
         data_dist = pdist(checked, wasserstein_distance)
     elif metric == "cm":
         data_dist = pdist(checked, energy_distance)
-    elif metric == "jaccard":
+    elif metric == "jaccard_custom":
         data_dist = pdist(checked, lambda x, y: jaccard(x, y))
+    elif metric == "jaccard":
+        data_dist = pdist(checked, "jaccard")
     elif metric == "raph_raph":
         data_dist = pdist(checked, lambda x, y: forchristoph.raphRaphDistFun(x[0], y[0]))
     elif metric == "raph_earth":
@@ -226,6 +227,13 @@ def set_vectors(documents):
 def graph_from_sim(sim, value):
     mask = np.copy(sim)
     mask[mask < value] = 0
+    G = nx.from_numpy_matrix(mask)
+
+    return G
+
+def graph_from_dist(dist, value):
+    mask = np.copy(dist)
+    mask[mask > value] = 0
     G = nx.from_numpy_matrix(mask)
 
     return G

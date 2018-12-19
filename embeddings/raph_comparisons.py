@@ -2,18 +2,22 @@ from importlib import reload
 
 from hdbscan import HDBSCAN
 from sklearn.cluster import (DBSCAN, SpectralClustering, KMeans)
+import numpy as np
 
 from sklearn import metrics
 
-import methods.forchristoph as forchristoph
+from os import path
+import sys
+sys.path.append(path.abspath('../methods'))
 
-import methods.embedding as embedding
-import methods.details as details
-import methods.helpers as helpers
-import methods.vis as vis
+import embedding
+import details
+import helpers
+import vis
+import forchristoph
 import path
 import exam
-import numpy as np
+
 
 # LOAD DATA
 # vecs = np.load('../datasets/paths.npy')
@@ -31,8 +35,8 @@ reload(forchristoph)
 # Similarity simMatrix
 metric = "raph_earth"  # cosine, emd, cm, raph_raph, raph_earth, raph_energy
 
-paths = np.array(vecs).reshape(-1, 1)
-dist = embedding.similarity_matrix(paths, metric, scaled=False)
+# paths = np.array(vecs).reshape(-1, 1)
+# dist = embedding.similarity_matrix(paths, metric, scaled=False)
 
 
 
@@ -43,7 +47,7 @@ em_dist = (em_dist - em_dist.min()) / (em_dist.max() - em_dist.min())
 raph_dist = (raph_dist - raph_dist.min()) / (raph_dist.max() - raph_dist.min())
 # sim = 1 - dist
 
-can = DBSCAN().fit_predict(raph_dist)
+can = DBSCAN().fit_predict(em_dist)
 metrics.adjusted_rand_score(can, ll)
 
 # VIS
