@@ -32,13 +32,16 @@ def lemmatization(text, stopwords):
                           not token.lemma_ == "-PRON-"])
     return texts_out
 
-def get_top_words(model, feature_names, n_top_words):
+def get_top_words(model, tfidf, n_top_words):
     out = []
-    for topic_idx, topic in enumerate(model.components_):
-        topics = [feature_names[i] for i in topic.argsort()[:-n_top_words - 1:-1]]
-        out.extend(topics)
+    feature_names = tfidf.get_feature_names()
+    idf = tfidf.idf_
+    vocab = tfidf.vocabulary_
 
-    return set(out)
+    for topic_idx, topic in enumerate(model.components_):
+        words = [(feature_names[i], idf[vocab[feature_names[i]]]) for i in topic.argsort()[:-n_top_words - 1:-1]]
+        out.append(words)
+    return out
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
@@ -75,7 +78,7 @@ abstract = abstract_tfidf.transform(abstract_texts)
 
 fulltext_texts = [" ".join(text) for text in full_lemma]
 fulltext_tfidf = TfidfVectorizer().fit(fulltext_texts)
-fulltext = abstract_tfidf.transform(fulltext_texts)
+fulltext = fulltext_tfidf.transform(fulltext_texts)
 
 abstract_nmf = NMF(10)
 abstract_vecs = abstract_nmf.fit_transform(abstract)
@@ -93,6 +96,11 @@ emb_full = pd.DataFrame(full_vecs)
 emb_full.to_json("nmf_full.json", orient="index")
 
 # top topic words
+abstract_top_words = get_top_words(abstract_nmf, abstract_tfidf, 100)
+pd.DataFrame(abstract_top_words).to_json("top_words_abstract.json", orient="values")
+
+full_top_words = get_top_words(full_nmf, fulltext_tfidf, 100)
+pd.DataFrame(full_top_words).to_json("top_words_full.json", orient="values")
 
 # dim reduction
 abstract_svd = TruncatedSVD(2).fit_transform(abstract_vecs)
@@ -125,10 +133,8 @@ full_projections.to_json("projections_full.json", orient="index")
 
 # CLASSIFICATION
 # train/test split for classification
-test = raw[raw["DOI"].str.contains("2013|2012")]  # len = 197
-train = raw.drop(test.index)  # len = 1280
-
-raw
+test = meta[meta["type"] == "new"]  # len = 197
+train = meta.drop(test.index)  # len = 1280
 
 # y
 enc = MultiLabelBinarizer()
