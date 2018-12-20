@@ -9,6 +9,8 @@ from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
 import spacy
+from sklearn.manifold import TSNE, MDS
+from sklearn.decomposition import PCA, TruncatedSVD
 
 nlp = spacy.load('en_core_web_md', disable=['ner'])
 
@@ -30,6 +32,13 @@ def lemmatization(text, stopwords):
                           not token.lemma_ == "-PRON-"])
     return texts_out
 
+def get_top_words(model, feature_names, n_top_words):
+    out = []
+    for topic_idx, topic in enumerate(model.components_):
+        topics = [feature_names[i] for i in topic.argsort()[:-n_top_words - 1:-1]]
+        out.extend(topics)
+
+    return set(out)
 
 # DATA Loading
 raw = np.load("../datasets/full.pkl")
@@ -83,7 +92,36 @@ emb_abstract.to_json("nmf_abstract.json", orient="index")
 emb_full = pd.DataFrame(full_vecs)
 emb_full.to_json("nmf_full.json", orient="index")
 
+# top topic words
 
+# dim reduction
+abstract_svd = TruncatedSVD(2).fit_transform(abstract_vecs)
+abstract_pca = PCA(2).fit_transform(abstract_vecs)
+abstract_tsne = TSNE(2).fit_transform(abstract_vecs)
+abstract_mds = MDS(2).fit_transform(abstract_vecs)
+
+abstract_projections = pd.DataFrame({
+    'svd': pd.DataFrame(abstract_svd).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'pca': pd.DataFrame(abstract_pca).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'mds': pd.DataFrame(abstract_mds).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'tsne': pd.DataFrame(abstract_tsne).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    })
+
+abstract_projections.to_json("projections_abstract.json", orient="index")
+
+full_svd = TruncatedSVD(2).fit_transform(full_vecs)
+full_pca = PCA(2).fit_transform(full_vecs)
+full_tsne = TSNE(2).fit_transform(full_vecs)
+full_mds = MDS(2).fit_transform(full_vecs)
+
+full_projections = pd.DataFrame({
+    'svd': pd.DataFrame(full_svd).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'pca': pd.DataFrame(full_pca).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'mds': pd.DataFrame(full_mds).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'tsne': pd.DataFrame(full_tsne).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    })
+
+full_projections.to_json("projections_full.json", orient="index")
 
 # CLASSIFICATION
 # train/test split for classification
