@@ -3,7 +3,7 @@ from importlib import reload
 import pandas as pd
 import numpy as np
 from textblob import TextBlob
-from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -37,7 +37,13 @@ fulltext = raw["Fulltext"]
 fulltext.to_json("fulltext.json", orient="index")
 
 # EMBEDDINGS
+abstract_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Abstract"])
+abstract = abstract_tfidf.transform(raw["Abstract"])
 
+fulltext_tfidf = TfidfVectorizer(stop_words="english").fit(raw["Fulltext"])
+fulltext = fulltext_tfidf.transform(raw["Fulltext"])
+
+a_nmf = NMF(10).fit(fulltext)
 
 # CLASSIFICATION
 # train/test split for classification
