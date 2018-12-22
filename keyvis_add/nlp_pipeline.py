@@ -130,25 +130,3 @@ full_projections = pd.DataFrame({
     })
 
 full_projections.to_json("projections_full.json", orient="index")
-
-# CLASSIFICATION
-# train/test split for classification
-test = meta[meta["type"] == "new"]  # len = 197
-train = meta.drop(test.index)  # len = 1280
-
-# y
-enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";") for cluster in train["Clusters"].tolist()])
-
-y_train = train["Clusters"].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values
-
-# prepare for visualization
-
-# Analysis
-# Similarity
-metric = "jaccard"  # cosine, jaccard, emd, cm
-distance = embedding.similarity_matrix(y_train, metric, as_distance=True)
-
-# vis.simMatrix(distance)
-vis.scatter(vecs, labels)
-vis.scatter_tsne(vecs, labels, 0.1)
