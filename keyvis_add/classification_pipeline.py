@@ -21,6 +21,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
+from sklearn.multioutput import ClassifierChain
 
 # nlp = spacy.load('en_core_web_md', disable=['ner'])
 
@@ -92,11 +93,17 @@ x_test = vecs[test_index]
 
 # classifiers
 # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
-tree = DecisionTreeClassifier().fit(x_train, y_train)
-extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
-ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(
-    learning_rate=0.1, n_estimators=200)).fit(x_train, y_train)
+tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
+# extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
+ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train, y_train)
+ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
+chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
 
+print(classification_report(y_train, chain_tree.predict(x_train)))
+print(classification_report(y_test, chain_tree.predict(x_test)))
 
-print(classification_report(y_train, extra.predict(x_train)))
-print(classification_report(y_test, extra.predict(x_test)))
+pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
+pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
+pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
+pd.DataFrame(tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
+pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
