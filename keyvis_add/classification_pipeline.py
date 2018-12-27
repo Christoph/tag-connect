@@ -12,7 +12,17 @@ import spacy
 from sklearn.manifold import TSNE, MDS
 from sklearn.decomposition import PCA, TruncatedSVD
 
-nlp = spacy.load('en_core_web_md', disable=['ner'])
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.metrics import classification_report
+
+# nlp = spacy.load('en_core_web_md', disable=['ner'])
 
 # Add general functions to the project
 from os import path
@@ -53,33 +63,40 @@ def get_top_words(model, tfidf, n_top_words):
 # pd.DataFrame(fulltext_texts).to_json("fulltext_lemma.json", orient="index")
 
 
-fulltexts = pd.read_json(
-    "../datasets/fulltext_lemma.json", orient="index").sort_index()
+fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
 meta = pd.read_json("../datasets/meta.json", orient="index")
-stop_words = stopwords.words('english')
 
 # CLASSIFICATION
 # train/test split for classification
 test_index = meta[meta["type"] == "new"].index  # len = 197
 train_index = meta.drop(test_index).index  # len = 1280
 
-test = fulltexts.iloc[test_index]
-train = fulltexts.iloc[train_index]
-
 # y
 enc = MultiLabelBinarizer()
 enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()])
 
-y_train = meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values
+y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+# y_train = meta.iloc[train_index].apply(lambda row: [row["Clusters"].split(";")][0], axis=1).values
+y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
 # x
-fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(train[0].tolist())
-fulltext_vecs = fulltext_tfidf.transform(train[0].tolist())
+fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
+fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 
-full_nmf = NMF(10)
-full_vecs = full_nmf.fit_transform(fulltext_vecs)
-full_vecs = np.asarray(full_vecs, dtype=np.object)
+nmf = NMF(10)
+vecs = nmf.fit_transform(fulltext_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
 
-x_train = full_vecs
+x_train = vecs[train_index]
+x_test = vecs[test_index]
 
 # classifiers
+# onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
+tree = DecisionTreeClassifier().fit(x_train, y_train)
+extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
+ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(
+    learning_rate=0.1, n_estimators=200)).fit(x_train, y_train)
+
+
+print(classification_report(y_train, extra.predict(x_train)))
+print(classification_report(y_test, extra.predict(x_test)))
