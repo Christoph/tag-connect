@@ -30,8 +30,8 @@ from os import path
 import sys
 sys.path.append(path.abspath('../methods'))
 
-import embedding
-import vis
+# import embedding
+# import vis
 
 # Helper functions
 def lemmatization(text, stopwords):
@@ -64,8 +64,9 @@ def get_top_words(model, tfidf, n_top_words):
 # pd.DataFrame(fulltext_texts).to_json("fulltext_lemma.json", orient="index")
 
 
-fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
-meta = pd.read_json("../datasets/meta.json", orient="index")
+# fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
+meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
+keywords = meta["Keywords"]
 
 # CLASSIFICATION
 # train/test split for classification
@@ -81,6 +82,7 @@ y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row[
 y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
 # x
+#fulltext
 fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
 fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 
@@ -91,6 +93,22 @@ vecs = np.asarray(vecs, dtype=np.object)
 x_train = vecs[train_index]
 x_test = vecs[test_index]
 
+# keywords multiword
+multi = [key.replace(" ", "_") for key in keywords.tolist()]
+multi_tfidf = TfidfVectorizer().fit(multi)
+multi_vecs = multi_tfidf.transform(multi)
+
+x_train = multi_vecs[train_index]
+x_test = multi_vecs[test_index]
+
+
+# keywords single word
+single_tfidf = TfidfVectorizer().fit(keywords.tolist())
+single_vecs = single_tfidf.transform(keywords.tolist())
+
+x_train = single_vecs[train_index]
+x_test = single_vecs[test_index]
+
 # classifiers
 # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
@@ -99,8 +117,8 @@ ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_
 ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
 chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
 
-print(classification_report(y_train, chain_tree.predict(x_train)))
-print(classification_report(y_test, chain_tree.predict(x_test)))
+print(classification_report(y_train, ovr_tree.predict(x_train)))
+print(classification_report(y_test, ovr_tree.predict(x_test)))
 
 pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
 pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
