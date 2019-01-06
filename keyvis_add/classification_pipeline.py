@@ -22,6 +22,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
+from sklearn.neural_network import MLPClassifier
 
 # nlp = spacy.load('en_core_web_md', disable=['ner'])
 
@@ -67,6 +68,8 @@ def get_top_words(model, tfidf, n_top_words):
 # fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
 meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
 keywords = meta["Keywords"]
+# Remove leading and trailing ;
+meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
 
 # CLASSIFICATION
 # train/test split for classification
@@ -116,8 +119,11 @@ tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
 ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train, y_train)
 ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
 chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
+chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
+mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
+mcp2 = MLPClassifier(hidden_layer_sizes=(100,100), max_iter=500).fit(x_train, y_train)
 
-print(classification_report(y_train, ovr_tree.predict(x_train)))
+print(classification_report(y_train, chain_extra.predict(x_train)))
 print(classification_report(y_test, ovr_tree.predict(x_test)))
 
 pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
