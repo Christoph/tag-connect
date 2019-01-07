@@ -172,3 +172,21 @@ pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
 pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
 pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
 pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
+
+# dim reduction
+enc_key = MultiLabelBinarizer()
+vecs = enc_key.fit_transform([m.split(" ") for m in single])
+
+svd = TruncatedSVD(2).fit_transform(vecs)
+pca = PCA(2).fit_transform(vecs)
+tsne = TSNE(2).fit_transform(vecs)
+mds = MDS(2).fit_transform(vecs)
+
+projections = pd.DataFrame({
+    'svd': pd.DataFrame(svd).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'pca': pd.DataFrame(pca).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'mds': pd.DataFrame(mds).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    'tsne': pd.DataFrame(tsne).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+    })
+
+projections.to_json("projections_keywords_single.json", orient="index")
