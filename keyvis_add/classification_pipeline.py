@@ -1,5 +1,6 @@
 from importlib import reload
 
+import re
 import pandas as pd
 import numpy as np
 from textblob import TextBlob
@@ -24,7 +25,7 @@ from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
 from sklearn.neural_network import MLPClassifier
 
-# nlp = spacy.load('en_core_web_md', disable=['ner'])
+nlp = spacy.load('en_core_web_md', disable=['ner'])
 
 # Add general functions to the project
 from os import path
@@ -38,11 +39,31 @@ sys.path.append(path.abspath('../methods'))
 def lemmatization(text, stopwords):
     """https://spacy.io/api/annotation"""
     texts_out = []
-    for sent in text.sents:
-        texts_out.extend([token.lemma_ for token in sent if
-                          token.lemma_ not in stop_words and
-                          not token.lemma_ == "-PRON-"])
-    return texts_out
+    regexr = text.replace(";", " ")
+    for sent in nlp(regexr).sents:
+        temp = " ".join((token.lemma_ for token in sent if
+                                   token.lemma_ not in stop_words and
+                                   len(token.lemma_) > 1 and
+                                   not token.lemma_ == "-PRON-"))
+        texts_out.append(temp)
+    return " ".join(texts_out)
+
+
+def preprocess(text, stopwords):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    regexr = re.sub(r"[^a-zA-Z0-9 _]*", "", text.replace(";", " "))
+    for doc in nlp(regexr).sents:
+        temp = " ".join((token.lemma_ for token in doc if
+                                   not token.like_num and
+                                   not token.like_url and
+                                   not token.like_email and
+                                   token.lemma_ not in stop_words and
+                                   len(token.lemma_) > 1 and
+                                   not token.lemma_ == "-PRON-"))
+        texts_out.append(temp)
+    return " ".join(texts_out)
+
 
 def get_top_words(model, tfidf, n_top_words):
     out = []
@@ -58,7 +79,7 @@ def get_top_words(model, tfidf, n_top_words):
 # DATA Loading
 # raw = np.load("../datasets/full.pkl")
 # raw = raw.reset_index(drop=True)
-# stop_words = stopwords.words('english')
+stop_words = stopwords.words('english')
 # docs = (nlp(text) for text in raw["Fulltext"].tolist())
 # full_lemma = (lemmatization(doc, stop_words) for doc in docs)
 # fulltext_texts = [" ".join(text) for text in full_lemma]
@@ -97,17 +118,19 @@ x_train = vecs[train_index]
 x_test = vecs[test_index]
 
 # keywords multiword
-multi = [key.replace(" ", "_") for key in keywords.tolist()]
+# multi = [lemmatization(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+# multi = [key.replace(" ", "_") for key in keywords.tolist()]
 multi_tfidf = TfidfVectorizer().fit(multi)
 multi_vecs = multi_tfidf.transform(multi)
 
 x_train = multi_vecs[train_index]
 x_test = multi_vecs[test_index]
 
-
 # keywords single word
-single_tfidf = TfidfVectorizer().fit(keywords.tolist())
-single_vecs = single_tfidf.transform(keywords.tolist())
+single = [preprocess(key, stopwords) for key in keywords.tolist()]
+single_tfidf = TfidfVectorizer().fit(single)
+single_vecs = single_tfidf.transform(single)
 
 x_train = single_vecs[train_index]
 x_test = single_vecs[test_index]
@@ -121,13 +144,31 @@ ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fi
 chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
 chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
 mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
-mcp2 = MLPClassifier(hidden_layer_sizes=(100,100), max_iter=500).fit(x_train, y_train)
+mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
 
-print(classification_report(y_train, chain_extra.predict(x_train)))
+print(classification_report(y_train, ovr_tree.predict(x_train)))
 print(classification_report(y_test, ovr_tree.predict(x_test)))
 
+# custom classifier
+clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
+keywords = [r.split() for r in multi]
+
+pairs = zip(keywords[:100], clusters[:100])
+mapping = {}
+for pair in pairs:
+    for keyword in pair[0]:
+        if keyword in mapping:
+            temp = mapping[keyword]
+            temp.union(pair[1])
+        else:
+            mapping[keyword] = set(pair[1])
+
+out_keywords = pd.DataFrame(pd.Series(mapping))[0].apply(lambda x: list(x))
+out_keywords.to_json("keyword_mapping.json", orient="index")
+
+# save the jsons
 pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
 pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
 pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
-pd.DataFrame(tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
+pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
 pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
