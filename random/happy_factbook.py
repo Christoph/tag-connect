@@ -5,12 +5,12 @@ facts = pd.read_json("../datasets/factbook.json")
 
 # add new columns
 happy["internet_access_population[%]"] = None
-happy["cellular_subscriptions[%]"] = None
-happy["surplus_deficit_gdp[%]"] = None
+happy["cellular_subscriptions"] = None
+happy["surplus_deficit_GDP[%]"] = None
 happy["familiy_income_gini_coeff"] = None
-happy["gdp_per_capita[$]"] = None
+happy["GDP_per_capita[$]"] = None
 happy["inflation_rate[%]"] = None
-happy["military_expenditures[%_of_gdp]"] = None
+happy["military_expenditures[%]"] = None
 happy["map_reference"] = None
 happy["biggest_official_language"] = None
 happy["population"] = None
@@ -48,13 +48,13 @@ for raw_country in happy["Country"].tolist():
                 happy.loc[happy["Country"] == raw_country, "internet_access_population[%]"] = data["communications"]["internet"]["users"]["percent_of_population"]
 
     try:
-        happy.loc[happy["Country"] == raw_country, "cellular_subscriptions[%]"] = data["communications"]["telephones"]["mobile_cellular"]["subscriptions_per_one_hundred_inhabitants"]
+        happy.loc[happy["Country"] == raw_country, "cellular_subscriptions"] = data["communications"]["telephones"]["mobile_cellular"]["subscriptions_per_one_hundred_inhabitants"]
     except KeyError:
         print(raw_country)
         continue
 
     try:
-        happy.loc[happy["Country"] == raw_country, "surplus_deficit_gdp[%]"] = data["economy"]["budget_surplus_or_deficit"]["percent_of_gdp"]
+        happy.loc[happy["Country"] == raw_country, "surplus_deficit_GDP[%]"] = data["economy"]["budget_surplus_or_deficit"]["percent_of_gdp"]
     except KeyError:
         print(raw_country)
         continue
@@ -62,8 +62,8 @@ for raw_country in happy["Country"].tolist():
     if "distribution_of_family_income" in data["economy"]:
         happy.loc[happy["Country"] == raw_country, "familiy_income_gini_coeff"] = data["economy"]["distribution_of_family_income"]["annual_values"][0]["value"]
 
-    if "per_capita_purchasing_power_parity" in data["economy"]:
-        happy.loc[happy["Country"] == raw_country, "gdp_per_capita[$]"] = data["economy"]["gdp"]["per_capita_purchasing_power_parity"]["annual_values"][0]["value"]
+    if "per_capita_purchasing_power_parity" in data["economy"]["gdp"]:
+        happy.loc[happy["Country"] == raw_country, "GDP_per_capita[$]"] = data["economy"]["gdp"]["per_capita_purchasing_power_parity"]["annual_values"][0]["value"]
 
     try:
         happy.loc[happy["Country"] == raw_country, "inflation_rate[%]"] = data["economy"]["inflation_rate"]["annual_values"][0]["value"]
@@ -72,7 +72,7 @@ for raw_country in happy["Country"].tolist():
         continue
 
     if "expenditures" in data["military_and_security"]:
-        happy.loc[happy["Country"] == raw_country, "military_expenditures[%_of_gdp]"] = data["military_and_security"]["expenditures"]["annual_values"][0]["value"]
+        happy.loc[happy["Country"] == raw_country, "military_expenditures[%]"] = data["military_and_security"]["expenditures"]["annual_values"][0]["value"]
 
     try:
         happy.loc[happy["Country"] == raw_country, "map_reference"] = data["geography"]["map_references"]
@@ -92,8 +92,6 @@ for raw_country in happy["Country"].tolist():
         print(raw_country)
         continue
 
-# Fix column names
-# Rename economy gdp .... to gdbcontribution to happiness [%]
 
 # Custom fixes for better tableau support
 happy.loc[happy["Country"] == "North Cyprus", "Country"] = "Northern Cyprus"
