@@ -4,7 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 from textblob import TextBlob
-from sklearn.decomposition import NMF
+from sklearn.decomposition import NMF, LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -24,8 +24,11 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
 from sklearn.neural_network import MLPClassifier
+from sklearn.metrics.pairwise import cosine_similarity
 
-nlp = spacy.load('en_core_web_md', disable=['ner'])
+
+# nlp = spacy.load('en_core_web_md', disable=['ner'])
+# stop_words = stopwords.words('english')
 
 # Add general functions to the project
 from os import path
@@ -80,14 +83,13 @@ def get_top_words(model, tfidf, n_top_words):
 # DATA Loading
 # raw = np.load("../datasets/full.pkl")
 # raw = raw.reset_index(drop=True)
-stop_words = stopwords.words('english')
 # docs = (nlp(text) for text in raw["Fulltext"].tolist())
 # full_lemma = (lemmatization(doc, stop_words) for doc in docs)
 # fulltext_texts = [" ".join(text) for text in full_lemma]
 # pd.DataFrame(fulltext_texts).to_json("fulltext_lemma.json", orient="index")
 
 
-# fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
+fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
 meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
 keywords = meta["Keywords"]
 # Remove leading and trailing ;
@@ -111,12 +113,20 @@ y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["C
 fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
 fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 
+x_train = fulltext_vecs[train_index]
+x_test = fulltext_vecs[test_index]
+
 nmf = NMF(10)
 vecs = nmf.fit_transform(fulltext_vecs)
 vecs = np.asarray(vecs, dtype=np.object)
 
-x_train = vecs[train_index]
-x_test = vecs[test_index]
+x_train_nmf = vecs[train_index]
+x_test_nmf = vecs[test_index]
+
+svd = TruncatedSVD(300).fit_transform(fulltext_vecs)
+x_train_svd = svd[train_index]
+x_test_svd = svd[test_index]
+
 
 # keywords multiword
 # multi = [lemmatization(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
@@ -125,30 +135,83 @@ multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist
 multi_tfidf = TfidfVectorizer().fit(multi)
 multi_vecs = multi_tfidf.transform(multi)
 
-x_train = multi_vecs[train_index]
-x_test = multi_vecs[test_index]
+x_train_multi = multi_vecs[train_index]
+x_test_multi = multi_vecs[test_index]
 
 # keywords single word
 single = [preprocess(key, stopwords) for key in keywords.tolist()]
 single_tfidf = TfidfVectorizer().fit(single)
 single_vecs = single_tfidf.transform(single)
 
-x_train = single_vecs[train_index]
-x_test = single_vecs[test_index]
+x_train_single = single_vecs[train_index]
+x_test_single = single_vecs[test_index]
+
+# concept vectors
+concept = 4
+
+# get all topic vectors and check internal consistency
+concept_vectors = x_train_nmf[np.nonzero(y_test.T[:,concept])[0]]
+cosine_similarity(concept_vectors)
+
+# check topic consistency
+concept = np.mean(concept_vectors, axis=0)
+cosine_similarity(np.vstack((concept_vectors, concept)))[-1,:]
+
+# compare two different concepts
+t1 = 20
+t2 = 30
+
+v3 = x_train_svd[np.nonzero(y_test.T[:,t1])[0]]
+print(len(v3))
+c3 = np.mean(v3, axis=0)
+
+v4 = x_train_svd[np.nonzero(y_test.T[:,t2])[0]]
+print(len(v4))
+c4 = np.mean(v4, axis=0)
+
+cosine_similarity(np.vstack((v3, v4, c3, c4)))[-1,:]  # c4 sim
+cosine_similarity(np.vstack((v3, v4, c3, c4)))[-2,:]  # c3 sim
+
+# build all concept concept_vectors
+used_train = x_train_nmf
+used_test = x_test_nmf
+
+nmf = NMF(20)
+vecs = nmf.fit_transform(fulltext_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+used_train = vecs[train_index]
+used_test = vecs[test_index]
+
+vector_sets = [used_train[np.nonzero(concept)[0]] for concept in y_train.T]
+concept_vectors = [np.mean(vecs, axis=0) for vecs in vector_sets]
+
+# classify based on concept vectors
+sim = cosine_similarity(np.vstack((used_test, concept_vectors)))
+prediction_vecs = sim[:-179, len(used_test):]
+prediction = np.array([vec > vec.mean() for vec in prediction_vecs.T])
+prediction = prediction_vecs > prediction_vecs.mean()
+
+sim = cosine_similarity(np.vstack((used_train, concept_vectors)))
+train_test_vecs = sim[:-179, len(used_train):]
+train_test = train_test_vecs > train_test_vecs.mean()
+
+print(classification_report(y_train, train_test))
+print(classification_report(y_test, prediction))
 
 # classifiers
 # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
-tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
+# tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
 # extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
-ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train, y_train)
-ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
-chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train, y_train)
-chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
-mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
-mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
+ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
+ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+# chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
+# mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
+# mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
 
-print(classification_report(y_train, ovr_tree.predict(x_train)))
-print(classification_report(y_test, ovr_tree.predict(x_test)))
+print(classification_report(y_train, ovr_tree.predict(x_train_single)))
+print(classification_report(y_test, ovr_tree.predict(x_test_single)))
 
 # custom classifier
 clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
