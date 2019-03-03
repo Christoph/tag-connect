@@ -15,6 +15,7 @@ from sklearn.decomposition import PCA, TruncatedSVD
 
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
@@ -27,8 +28,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# nlp = spacy.load('en_core_web_md', disable=['ner'])
-# stop_words = stopwords.words('english')
+nlp = spacy.load('en_core_web_md', disable=['ner'])
+stop_words = stopwords.words('english')
 
 # Add general functions to the project
 from os import path
@@ -88,6 +89,10 @@ def get_top_words(model, tfidf, n_top_words):
 # fulltext_texts = [" ".join(text) for text in full_lemma]
 # pd.DataFrame(fulltext_texts).to_json("fulltext_lemma.json", orient="index")
 
+
+# meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
+# full = pd.read_json("../datasets/fulltext.json", typ='series').sort_index()
+#
 
 fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
 meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
@@ -199,6 +204,18 @@ train_test = train_test_vecs > train_test_vecs.mean()
 print(classification_report(y_train, train_test))
 print(classification_report(y_test, prediction))
 
+reduced_meta = meta[meta["type"]=="new"]
+reduced_meta["Vector"] = [v.tolist() for v in used_test]
+# reduced_full = pd.Series(np.array(full)[meta["type"]=="new"])
+
+reduced_meta.to_json("reduced_meta.json", orient="index")
+# reduced_full.to_json("reduced_fulltext.json", orient="index")
+
+classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
+classes["Vector"] = [v.tolist() for v in concept_vectors]
+
+classes.to_json("classes.json", orient="index")
+
 # classifiers
 # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
@@ -210,8 +227,11 @@ chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_
 # mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
 # mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
 
+ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
 print(classification_report(y_train, ovr_tree.predict(x_train_single)))
 print(classification_report(y_test, ovr_tree.predict(x_test_single)))
+
+ovr_tree.predict_proba(x_test_single)[0]
 
 # custom classifier
 clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
