@@ -3,7 +3,7 @@ from importlib import reload
 import re
 import pandas as pd
 import numpy as np
-from textblob import TextBlob
+# from textblob import TextBlob
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
@@ -26,9 +26,12 @@ from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import LogisticRegression
+import RMDL
 
-
-nlp = spacy.load('en_core_web_md', disable=['ner'])
+nlp = spacy.load('en', disable=['ner'])
 stop_words = stopwords.words('english')
 
 # Add general functions to the project
@@ -94,11 +97,13 @@ def get_top_words(model, tfidf, n_top_words):
 # full = pd.read_json("../datasets/fulltext.json", typ='series').sort_index()
 #
 
-fulltexts = pd.read_json("../datasets/fulltext_lemma.json", orient="index").sort_index()
-meta = pd.read_json("../datasets/meta.json", orient="index").sort_index()
+fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
+meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
 keywords = meta["Keywords"]
 # Remove leading and trailing ;
 meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
+
+
 
 # CLASSIFICATION
 # train/test split for classification
@@ -218,20 +223,39 @@ classes.to_json("classes.json", orient="index")
 
 # classifiers
 # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
+# onevsrest.score(x_test, y_test)
 # tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
 # extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
 ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
+ovr_ada.score(x_test_single, y_test)
 ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+ovr_tree.score(x_test_single, y_test)
 chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+chain_tree.score(x_test_single, y_test)
 # chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
 # mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
 # mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
+mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
+mnb.score(x_test_single, y_test)
+lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
+lgd.score(x_test_single, y_test)
+log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
+log.score(x_test_single, y_test)
 
-ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
-print(classification_report(y_train, ovr_tree.predict(x_train_single)))
-print(classification_report(y_test, ovr_tree.predict(x_test_single)))
+# https://github.com/kk7nc/RMDL
+train_single = np.array(single)[train_index]
+test_single = np.array(single)[test_index]
 
-ovr_tree.predict_proba(x_test_single)[0]
+RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
+            #  batch_size=batch_size,
+            #  sparse_categorical=True,
+            #  random_deep=Random_Deep,
+             epochs=[20, 50, 50]) ## DNN--RNN-CNN
+
+print_cls = ovr_tree
+
+print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
+print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
 
 # custom classifier
 clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
@@ -253,6 +277,7 @@ out_keywords.to_json("keyword_mapping.json", orient="index")
 # save the jsons
 pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
 pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
+pd.DataFrame(y_test).to_json("ground_truth_labels.json", orient="values")
 pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
 pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
 pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
