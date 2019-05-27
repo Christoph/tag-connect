@@ -24,13 +24,22 @@ unique_clusters = enc.classes_
 #       ],
 #       data=[56, 283, 1279, 5882, 24, 90, 429, 1957])
 
+pd.DataFrame(unique_clusters)[50:100]
+
 def upset(index):
     selection = clusters[np.where(sets[:, index] > 0 )]
     items, counts = np.unique(selection, return_counts=True)
 
     subset = from_memberships(items, counts)
+    sub_classes = np.unique([item for sublist in items for item in sublist])
 
     print("Root Class: ", unique_clusters[index])
-    plot(subset)
+    print("# Classes: ", len(sub_classes))
+    print("# Items: ", len(items))
+    if len(items) > 40 or len(sub_classes) > 20:
+        print("Too many items")
+    else:
+        plot(subset)
 
-upset(1)
+# working 0, 1, 87, 89, 30, 48
+upset(48)
