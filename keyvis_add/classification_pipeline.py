@@ -299,3 +299,154 @@ projections = pd.DataFrame({
     })
 
 projections.to_json("projections_keywords_single.json", orient="index")
+
+# Automatic performance measurement
+
+# Parameters:
+# Data - fulltexts, abstracts, keywords_single, keywords_multi
+# Embedding - 
+
+# data
+meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
+
+# Remove leading and trailing ;
+meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
+
+# train/test split for classification
+test_index = meta[meta["type"] == "new"].index  # len = 197
+train_index = meta.drop(test_index).index  # len = 1280
+
+# fulltexts
+fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
+
+# abstracts
+abstracts = list(meta["Abstracts"])
+
+# keywords
+keywords = meta["Keywords"]
+multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+single = [preprocess(key, stopwords) for key in keywords.tolist()]
+
+# embedding
+# y
+enc = MultiLabelBinarizer()
+enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()])
+
+y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+
+# x
+#fulltext
+fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
+fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
+
+x_train_full = fulltext_vecs[train_index]
+x_test_full = fulltext_vecs[test_index]
+
+abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts[0].tolist())
+abstract_vecs = fulltext_tfidf.transform(abstracts[0].tolist())
+
+x_train_abstract = abstract_vecs[train_index]
+x_test_abstract = abstract_vecs[test_index]
+
+nmf = NMF(10)
+vecs = nmf.fit_transform(fulltext_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_nmf_10 = vecs[train_index]
+x_test_nmf_10 = vecs[test_index]
+
+nmf = NMF(15)
+vecs = nmf.fit_transform(fulltext_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_nmf_15 = vecs[train_index]
+x_test_nmf_15 = vecs[test_index]
+
+nmf = NMF(20)
+vecs = nmf.fit_transform(fulltext_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_nmf_20 = vecs[train_index]
+x_test_nmf_20 = vecs[test_index]
+
+nmf = NMF(10)
+vecs = nmf.fit_transform(abstract_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_abstract_nmf_10 = vecs[train_index]
+x_test_abstract_nmf_10 = vecs[test_index]
+
+nmf = NMF(15)
+vecs = nmf.fit_transform(abstract_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_abstract_nmf_15 = vecs[train_index]
+x_test_abstract_nmf_15 = vecs[test_index]
+
+nmf = NMF(20)
+vecs = nmf.fit_transform(abstract_vecs)
+vecs = np.asarray(vecs, dtype=np.object)
+
+x_train_abstract_nmf_20 = vecs[train_index]
+x_test_abstract_nmf_20 = vecs[test_index]
+
+svd = TruncatedSVD(50).fit_transform(fulltext_vecs)
+x_train_svd_50 = svd[train_index]
+x_test_svd_50 = svd[test_index]
+
+svd = TruncatedSVD(20).fit_transform(fulltext_vecs)
+x_train_svd_20= svd[train_index]
+x_test_svd_20= svd[test_index]
+
+svd = TruncatedSVD(100).fit_transform(fulltext_vecs)
+x_train_svd_100 = svd[train_index]
+x_test_svd_100 = svd[test_index]
+
+svd = TruncatedSVD(50).fit_transform(abstract_tfidf)
+x_train_abstract_svd_50 = svd[train_index]
+x_test_abstract_svd_50 = svd[test_index]
+
+svd = TruncatedSVD(20).fit_transform(abstract_vecs)
+x_train_abstract_svd_20= svd[train_index]
+x_test_abstract_svd_20= svd[test_index]
+
+svd = TruncatedSVD(100).fit_transform(abstract_vecs)
+x_train_abstract_svd_100 = svd[train_index]
+x_test_abstract_svd_100 = svd[test_index]
+# abstract
+
+# keywords multi
+multi_tfidf = TfidfVectorizer().fit(multi)
+multi_vecs = multi_tfidf.transform(multi)
+
+x_train_multi = multi_vecs[train_index]
+x_test_multi = multi_vecs[test_index]
+
+# keywords single
+single_tfidf = TfidfVectorizer().fit(single)
+single_vecs = single_tfidf.transform(single)
+
+x_train_single = single_vecs[train_index]
+x_test_single = single_vecs[test_index]
+
+datasets = [
+    [x_train_full, x_test_full],
+    [x_train_nmf_10, x_test_nmf_10],
+    [x_train_nmf_15, x_test_nmf_15],
+    [x_train_nmf_20, x_test_nmf_20],
+    [x_train_svd_20, x_test_svd_20],
+    [x_train_svd_50, x_test_svd_50],
+    [x_train_svd_100, x_test_svd_100],
+    [x_train_abstract, x_test_abstract],
+    [x_train_abstract_nmf_10, x_test_abstract_nmf_10],
+    [x_train_abstract_nmf_15, x_test_abstract_nmf_15],
+    [x_train_abstract_nmf_20, x_test_abstract_nmf_20],
+    [x_train_abstract_svd_20, x_test_abstract_svd_20],
+    [x_train_abstract_svd_50, x_test_abstract_svd_50],
+    [x_train_abstract_svd_100, x_test_abstract_svd_100],
+    [x_train_multi, x_test_multi],
+    [x_train_single, x_test_single]
+    ]
+
+# classification
