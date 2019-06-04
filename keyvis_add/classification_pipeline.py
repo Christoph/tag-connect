@@ -29,7 +29,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegression
-import RMDL
+# import RMDL
 
 nlp = spacy.load('en', disable=['ner'])
 stop_words = stopwords.words('english')
@@ -97,208 +97,208 @@ def get_top_words(model, tfidf, n_top_words):
 # full = pd.read_json("../datasets/fulltext.json", typ='series').sort_index()
 #
 
-fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
-meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
-keywords = meta["Keywords"]
-# Remove leading and trailing ;
-meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
+# fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
+# meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
+# keywords = meta["Keywords"]
+# # Remove leading and trailing ;
+# meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
 
 
 
-# CLASSIFICATION
-# train/test split for classification
-test_index = meta[meta["type"] == "new"].index  # len = 197
-train_index = meta.drop(test_index).index  # len = 1280
+# # CLASSIFICATION
+# # train/test split for classification
+# test_index = meta[meta["type"] == "new"].index  # len = 197
+# train_index = meta.drop(test_index).index  # len = 1280
 
-# y
-enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()])
+# # y
+# enc = MultiLabelBinarizer()
+# enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()])
 
-y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
-# y_train = meta.iloc[train_index].apply(lambda row: [row["Clusters"].split(";")][0], axis=1).values
-y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+# y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+# # y_train = meta.iloc[train_index].apply(lambda row: [row["Clusters"].split(";")][0], axis=1).values
+# y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
-# x
-#fulltext
-fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
-fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
+# # x
+# #fulltext
+# fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
+# fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 
-x_train = fulltext_vecs[train_index]
-x_test = fulltext_vecs[test_index]
+# x_train = fulltext_vecs[train_index]
+# x_test = fulltext_vecs[test_index]
 
-nmf = NMF(10)
-vecs = nmf.fit_transform(fulltext_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
+# nmf = NMF(10)
+# vecs = nmf.fit_transform(fulltext_vecs)
+# vecs = np.asarray(vecs, dtype=np.object)
 
-x_train_nmf = vecs[train_index]
-x_test_nmf = vecs[test_index]
+# x_train_nmf = vecs[train_index]
+# x_test_nmf = vecs[test_index]
 
-svd = TruncatedSVD(300).fit_transform(fulltext_vecs)
-x_train_svd = svd[train_index]
-x_test_svd = svd[test_index]
+# svd = TruncatedSVD(300).fit_transform(fulltext_vecs)
+# x_train_svd = svd[train_index]
+# x_test_svd = svd[test_index]
 
 
-# keywords multiword
-# multi = [lemmatization(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
-multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
-# multi = [key.replace(" ", "_") for key in keywords.tolist()]
-multi_tfidf = TfidfVectorizer().fit(multi)
-multi_vecs = multi_tfidf.transform(multi)
+# # keywords multiword
+# # multi = [lemmatization(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+# multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+# # multi = [key.replace(" ", "_") for key in keywords.tolist()]
+# multi_tfidf = TfidfVectorizer().fit(multi)
+# multi_vecs = multi_tfidf.transform(multi)
 
-x_train_multi = multi_vecs[train_index]
-x_test_multi = multi_vecs[test_index]
+# x_train_multi = multi_vecs[train_index]
+# x_test_multi = multi_vecs[test_index]
 
-# keywords single word
-single = [preprocess(key, stopwords) for key in keywords.tolist()]
-single_tfidf = TfidfVectorizer().fit(single)
-single_vecs = single_tfidf.transform(single)
+# # keywords single word
+# single = [preprocess(key, stopwords) for key in keywords.tolist()]
+# single_tfidf = TfidfVectorizer().fit(single)
+# single_vecs = single_tfidf.transform(single)
 
-x_train_single = single_vecs[train_index]
-x_test_single = single_vecs[test_index]
+# x_train_single = single_vecs[train_index]
+# x_test_single = single_vecs[test_index]
 
-# concept vectors
-concept = 4
+# # concept vectors
+# concept = 4
 
-# get all topic vectors and check internal consistency
-concept_vectors = x_train_nmf[np.nonzero(y_test.T[:,concept])[0]]
-cosine_similarity(concept_vectors)
+# # get all topic vectors and check internal consistency
+# concept_vectors = x_train_nmf[np.nonzero(y_test.T[:,concept])[0]]
+# cosine_similarity(concept_vectors)
 
-# check topic consistency
-concept = np.mean(concept_vectors, axis=0)
-cosine_similarity(np.vstack((concept_vectors, concept)))[-1,:]
+# # check topic consistency
+# concept = np.mean(concept_vectors, axis=0)
+# cosine_similarity(np.vstack((concept_vectors, concept)))[-1,:]
 
-# compare two different concepts
-t1 = 20
-t2 = 30
+# # compare two different concepts
+# t1 = 20
+# t2 = 30
 
-v3 = x_train_svd[np.nonzero(y_test.T[:,t1])[0]]
-print(len(v3))
-c3 = np.mean(v3, axis=0)
+# v3 = x_train_svd[np.nonzero(y_test.T[:,t1])[0]]
+# print(len(v3))
+# c3 = np.mean(v3, axis=0)
 
-v4 = x_train_svd[np.nonzero(y_test.T[:,t2])[0]]
-print(len(v4))
-c4 = np.mean(v4, axis=0)
+# v4 = x_train_svd[np.nonzero(y_test.T[:,t2])[0]]
+# print(len(v4))
+# c4 = np.mean(v4, axis=0)
 
-cosine_similarity(np.vstack((v3, v4, c3, c4)))[-1,:]  # c4 sim
-cosine_similarity(np.vstack((v3, v4, c3, c4)))[-2,:]  # c3 sim
+# cosine_similarity(np.vstack((v3, v4, c3, c4)))[-1,:]  # c4 sim
+# cosine_similarity(np.vstack((v3, v4, c3, c4)))[-2,:]  # c3 sim
 
-# build all concept concept_vectors
-used_train = x_train_nmf
-used_test = x_test_nmf
+# # build all concept concept_vectors
+# used_train = x_train_nmf
+# used_test = x_test_nmf
 
-nmf = NMF(20)
-vecs = nmf.fit_transform(fulltext_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
+# nmf = NMF(20)
+# vecs = nmf.fit_transform(fulltext_vecs)
+# vecs = np.asarray(vecs, dtype=np.object)
 
-used_train = vecs[train_index]
-used_test = vecs[test_index]
+# used_train = vecs[train_index]
+# used_test = vecs[test_index]
 
-vector_sets = [used_train[np.nonzero(concept)[0]] for concept in y_train.T]
-concept_vectors = [np.mean(vecs, axis=0) for vecs in vector_sets]
+# vector_sets = [used_train[np.nonzero(concept)[0]] for concept in y_train.T]
+# concept_vectors = [np.mean(vecs, axis=0) for vecs in vector_sets]
 
-# classify based on concept vectors
-sim = cosine_similarity(np.vstack((used_test, concept_vectors)))
-prediction_vecs = sim[:-179, len(used_test):]
-prediction = np.array([vec > vec.mean() for vec in prediction_vecs.T])
-prediction = prediction_vecs > prediction_vecs.mean()
+# # classify based on concept vectors
+# sim = cosine_similarity(np.vstack((used_test, concept_vectors)))
+# prediction_vecs = sim[:-179, len(used_test):]
+# prediction = np.array([vec > vec.mean() for vec in prediction_vecs.T])
+# prediction = prediction_vecs > prediction_vecs.mean()
 
-sim = cosine_similarity(np.vstack((used_train, concept_vectors)))
-train_test_vecs = sim[:-179, len(used_train):]
-train_test = train_test_vecs > train_test_vecs.mean()
+# sim = cosine_similarity(np.vstack((used_train, concept_vectors)))
+# train_test_vecs = sim[:-179, len(used_train):]
+# train_test = train_test_vecs > train_test_vecs.mean()
 
-print(classification_report(y_train, train_test))
-print(classification_report(y_test, prediction))
+# print(classification_report(y_train, train_test))
+# print(classification_report(y_test, prediction))
 
-reduced_meta = meta[meta["type"]=="new"]
-reduced_meta["Vector"] = [v.tolist() for v in used_test]
-# reduced_full = pd.Series(np.array(full)[meta["type"]=="new"])
+# reduced_meta = meta[meta["type"]=="new"]
+# reduced_meta["Vector"] = [v.tolist() for v in used_test]
+# # reduced_full = pd.Series(np.array(full)[meta["type"]=="new"])
 
-reduced_meta.to_json("reduced_meta.json", orient="index")
-# reduced_full.to_json("reduced_fulltext.json", orient="index")
+# reduced_meta.to_json("reduced_meta.json", orient="index")
+# # reduced_full.to_json("reduced_fulltext.json", orient="index")
 
-classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
-classes["Vector"] = [v.tolist() for v in concept_vectors]
+# classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
+# classes["Vector"] = [v.tolist() for v in concept_vectors]
 
-classes.to_json("classes.json", orient="index")
+# classes.to_json("classes.json", orient="index")
 
-# classifiers
-# onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
-# onevsrest.score(x_test, y_test)
-# tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
-# extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
-ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
-ovr_ada.score(x_test_single, y_test)
-ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
-ovr_tree.score(x_test_single, y_test)
-chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
-chain_tree.score(x_test_single, y_test)
-# chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
-# mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
-# mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
-mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
-mnb.score(x_test_single, y_test)
-lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
-lgd.score(x_test_single, y_test)
-log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
-log.score(x_test_single, y_test)
+# # classifiers
+# # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
+# # onevsrest.score(x_test, y_test)
+# # tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
+# # extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
+# ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
+# ovr_ada.score(x_test_single, y_test)
+# ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+# ovr_tree.score(x_test_single, y_test)
+# chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+# chain_tree.score(x_test_single, y_test)
+# # chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
+# # mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
+# # mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
+# mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
+# mnb.score(x_test_single, y_test)
+# lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
+# lgd.score(x_test_single, y_test)
+# log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
+# log.score(x_test_single, y_test)
 
-# https://github.com/kk7nc/RMDL
-train_single = np.array(single)[train_index]
-test_single = np.array(single)[test_index]
+# # https://github.com/kk7nc/RMDL
+# train_single = np.array(single)[train_index]
+# test_single = np.array(single)[test_index]
 
-RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
-            #  batch_size=batch_size,
-            #  sparse_categorical=True,
-            #  random_deep=Random_Deep,
-             epochs=[20, 50, 50]) ## DNN--RNN-CNN
+# RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
+#             #  batch_size=batch_size,
+#             #  sparse_categorical=True,
+#             #  random_deep=Random_Deep,
+#              epochs=[20, 50, 50]) ## DNN--RNN-CNN
 
-print_cls = ovr_tree
+# print_cls = ovr_tree
 
-print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
-print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
+# print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
+# print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
 
-# custom classifier
-clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
-keywords = [r.split() for r in multi]
+# # custom classifier
+# clusters = [cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()]
+# keywords = [r.split() for r in multi]
 
-pairs = zip(keywords[:100], clusters[:100])
-mapping = {}
-for pair in pairs:
-    for keyword in pair[0]:
-        if keyword in mapping:
-            temp = mapping[keyword]
-            temp.union(pair[1])
-        else:
-            mapping[keyword] = set(pair[1])
+# pairs = zip(keywords[:100], clusters[:100])
+# mapping = {}
+# for pair in pairs:
+#     for keyword in pair[0]:
+#         if keyword in mapping:
+#             temp = mapping[keyword]
+#             temp.union(pair[1])
+#         else:
+#             mapping[keyword] = set(pair[1])
 
-out_keywords = pd.DataFrame(pd.Series(mapping))[0].apply(lambda x: list(x))
-out_keywords.to_json("keyword_mapping.json", orient="index")
+# out_keywords = pd.DataFrame(pd.Series(mapping))[0].apply(lambda x: list(x))
+# out_keywords.to_json("keyword_mapping.json", orient="index")
 
-# save the jsons
-pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
-pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
-pd.DataFrame(y_test).to_json("ground_truth_labels.json", orient="values")
-pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
-pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
-pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
+# # save the jsons
+# pd.DataFrame(enc.classes_).to_json("classes.json", orient="values")
+# pd.DataFrame(y_train).to_json("old_labels.json", orient="values")
+# pd.DataFrame(y_test).to_json("ground_truth_labels.json", orient="values")
+# pd.DataFrame(ovr_tree.predict(x_test)).to_json("new_labels_1.json", orient="values")
+# pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_2.json", orient="values")
+# pd.DataFrame(chain_tree.predict(x_test)).to_json("new_labels_3.json", orient="values")
 
-# dim reduction
-enc_key = MultiLabelBinarizer()
-vecs = enc_key.fit_transform([m.split(" ") for m in single])
+# # dim reduction
+# enc_key = MultiLabelBinarizer()
+# vecs = enc_key.fit_transform([m.split(" ") for m in single])
 
-svd = TruncatedSVD(2).fit_transform(vecs)
-pca = PCA(2).fit_transform(vecs)
-tsne = TSNE(2).fit_transform(vecs)
-mds = MDS(2).fit_transform(vecs)
+# svd = TruncatedSVD(2).fit_transform(vecs)
+# pca = PCA(2).fit_transform(vecs)
+# tsne = TSNE(2).fit_transform(vecs)
+# mds = MDS(2).fit_transform(vecs)
 
-projections = pd.DataFrame({
-    'svd': pd.DataFrame(svd).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
-    'pca': pd.DataFrame(pca).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
-    'mds': pd.DataFrame(mds).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
-    'tsne': pd.DataFrame(tsne).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
-    })
+# projections = pd.DataFrame({
+#     'svd': pd.DataFrame(svd).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+#     'pca': pd.DataFrame(pca).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+#     'mds': pd.DataFrame(mds).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+#     'tsne': pd.DataFrame(tsne).apply(lambda row: str(row[0])+ ","+str(row[1]), axis = 1),
+#     })
 
-projections.to_json("projections_keywords_single.json", orient="index")
+# projections.to_json("projections_keywords_single.json", orient="index")
 
 # Automatic performance measurement
 
@@ -431,22 +431,63 @@ x_train_single = single_vecs[train_index]
 x_test_single = single_vecs[test_index]
 
 datasets = [
-    [x_train_full, x_test_full],
-    [x_train_nmf_10, x_test_nmf_10],
-    [x_train_nmf_15, x_test_nmf_15],
-    [x_train_nmf_20, x_test_nmf_20],
-    [x_train_svd_20, x_test_svd_20],
-    [x_train_svd_50, x_test_svd_50],
-    [x_train_svd_100, x_test_svd_100],
-    [x_train_abstract, x_test_abstract],
-    [x_train_abstract_nmf_10, x_test_abstract_nmf_10],
-    [x_train_abstract_nmf_15, x_test_abstract_nmf_15],
-    [x_train_abstract_nmf_20, x_test_abstract_nmf_20],
-    [x_train_abstract_svd_20, x_test_abstract_svd_20],
-    [x_train_abstract_svd_50, x_test_abstract_svd_50],
-    [x_train_abstract_svd_100, x_test_abstract_svd_100],
-    [x_train_multi, x_test_multi],
-    [x_train_single, x_test_single]
+    ["fulltext tfidf",x_train_full, x_test_full],
+    ["fulltext nmf 10",x_train_nmf_10, x_test_nmf_10],
+    ["fulltext nmf 15",x_train_nmf_15, x_test_nmf_15],
+    ["fulltext nmf 20",x_train_nmf_20, x_test_nmf_20],
+    ["fulltext tfidf svd 20",x_train_svd_20, x_test_svd_20],
+    ["fulltext tfidf svd 50",x_train_svd_50, x_test_svd_50],
+    ["fulltext tfidf svd 100",x_train_svd_100, x_test_svd_100],
+    ["abstract tfidf",x_train_abstract, x_test_abstract],
+    ["abstract nmf 10",x_train_abstract_nmf_10, x_test_abstract_nmf_10],
+    ["abstract nmf 15",x_train_abstract_nmf_15, x_test_abstract_nmf_15],
+    ["abstract nmf 20",x_train_abstract_nmf_20, x_test_abstract_nmf_20],
+    ["abstract tfidf svd 20",x_train_abstract_svd_20, x_test_abstract_svd_20],
+    ["abstract tfidf svd 50",x_train_abstract_svd_50, x_test_abstract_svd_50],
+    ["abstract tfidf svd 100",x_train_abstract_svd_100,x_test_abstract_svd_100],
+    ["keywords multi-word",x_train_multi, x_test_multi],
+    ["keywords single-word",x_train_single, x_test_single]
     ]
 
 # classification
+
+for dataset in datasets:
+    name = dataset[0]
+    train = dataset[1]
+    test = dataset[2]
+
+    
+# onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
+# onevsrest.score(x_test, y_test)
+# tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
+# extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
+ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
+ovr_ada.score(x_test_single, y_test)
+ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+ovr_tree.score(x_test_single, y_test)
+chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+chain_tree.score(x_test_single, y_test)
+# chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
+# mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
+# mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
+mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
+mnb.score(x_test_single, y_test)
+lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
+lgd.score(x_test_single, y_test)
+log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
+log.score(x_test_single, y_test)
+
+# https://github.com/kk7nc/RMDL
+train_single = np.array(single)[train_index]
+test_single = np.array(single)[test_index]
+
+RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
+            #  batch_size=batch_size,
+            #  sparse_categorical=True,
+            #  random_deep=Random_Deep,
+             epochs=[20, 50, 50]) ## DNN--RNN-CNN
+
+print_cls = ovr_tree
+
+print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
+print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
