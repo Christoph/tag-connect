@@ -34,12 +34,13 @@ def upset(index):
     sub_classes = np.unique([item for sublist in items for item in sublist])
 
     print("Root Class: ", unique_clusters[index])
-    print("# Classes: ", len(sub_classes))
-    print("# Items: ", len(items))
+    print("# Papers: ", len(selection))
+    print("# Labels: ", len(sub_classes))
+    print("# Classes: ", len(items))
     if len(items) > 40 or len(sub_classes) > 20:
         print("Too many items")
     else:
         plot(subset)
 
 # working 0, 1, 87, 89, 30, 48
-upset(48)
+upset(1)
