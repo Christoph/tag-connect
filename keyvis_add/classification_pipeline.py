@@ -15,9 +15,9 @@ from sklearn.decomposition import PCA, TruncatedSVD
 
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
@@ -26,9 +26,11 @@ from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import MultinomialNB, GaussianNB
 from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 # import RMDL
 
 nlp = spacy.load('en', disable=['ner'])
@@ -320,7 +322,8 @@ train_index = meta.drop(test_index).index  # len = 1280
 fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
 
 # abstracts
-abstracts = list(meta["Abstracts"])
+abstracts = list(meta["Abstract"])
+
 
 # keywords
 keywords = meta["Keywords"]
@@ -335,6 +338,8 @@ enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].to
 y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
+classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
+
 # x
 #fulltext
 fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
@@ -343,8 +348,8 @@ fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 x_train_full = fulltext_vecs[train_index]
 x_test_full = fulltext_vecs[test_index]
 
-abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts[0].tolist())
-abstract_vecs = fulltext_tfidf.transform(abstracts[0].tolist())
+abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts)
+abstract_vecs = fulltext_tfidf.transform(abstracts)
 
 x_train_abstract = abstract_vecs[train_index]
 x_test_abstract = abstract_vecs[test_index]
@@ -403,7 +408,7 @@ svd = TruncatedSVD(100).fit_transform(fulltext_vecs)
 x_train_svd_100 = svd[train_index]
 x_test_svd_100 = svd[test_index]
 
-svd = TruncatedSVD(50).fit_transform(abstract_tfidf)
+svd = TruncatedSVD(50).fit_transform(abstract_vecs)
 x_train_abstract_svd_50 = svd[train_index]
 x_test_abstract_svd_50 = svd[test_index]
 
@@ -450,44 +455,181 @@ datasets = [
     ]
 
 # classification
+out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
+
+classifications = [
+    ["DecisionTree", DecisionTreeClassifier, [
+        {"criterion": "gini", "min_samples_leaf": 5},
+        {"criterion": "gini", "min_samples_leaf": 10},
+        {"criterion": "entropy", "min_samples_leaf": 5},
+        {"criterion": "entropy", "min_samples_leaf": 10},
+        ]],
+    ["ExtraTree", ExtraTreeClassifier, [
+        {"criterion": "gini", "min_samples_leaf": 5},
+        {"criterion": "gini", "min_samples_leaf": 10},
+        {"criterion": "entropy", "min_samples_leaf": 5},
+        {"criterion": "entropy", "min_samples_leaf": 10},
+        ]],
+    ["Extra Tree Ensemble", ExtraTreesClassifier, [
+        {"n_estimators": 100, "min_samples_leaf": 5},
+        {"n_estimators": 200, "min_samples_leaf": 5},
+        {"n_estimators": 100, "min_samples_leaf": 10},
+        {"n_estimators": 200, "min_samples_leaf": 10},
+        {"n_estimators": 100, "min_samples_leaf": 5},
+        {"n_estimators": 200, "min_samples_leaf": 5},
+        {"n_estimators": 100, "min_samples_leaf": 10},
+        {"n_estimators": 200, "min_samples_leaf": 10},
+        ]],
+    ["kneighbors", KNeighborsClassifier, [
+        {"n_neighbors": 5},
+        {"n_neighbors": 10},
+        {"n_neighbors": 15},
+        ]],
+    ["Random Forest", RandomForestClassifier, [
+        {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 5},
+        {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 5},
+        {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 5},
+        {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 5},
+        {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 5},
+        {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 5},
+        {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 10},
+        {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 10},
+        {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 10},
+        {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 10},
+        {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 10},
+        {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 10},
+        ]],
+    ["MLP", MLPClassifier, [
+        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "constant"},
+        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "constant"},
+        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "constant"},
+        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "constant"},
+        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "constant"},
+        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "constant"},
+        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "constant"},
+        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "constant"},
+        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "adaptive"},
+        ]]
+]
+
+
+multiclass = [
+    ["Gradient Boosting", GradientBoostingClassifier, {"learning_rate": 0.1, "n_estimators": 300}],
+    ["Decision Tree", DecisionTreeClassifier, [
+        {"criterion": "gini", "min_samples_leaf": 5},
+        {"criterion": "gini", "min_samples_leaf": 10},
+        {"criterion": "entropy", "min_samples_leaf": 5},
+        {"criterion": "entropy", "min_samples_leaf": 10},
+        ]],
+    ["Multinomial NB", MultinomialNB, {}],
+    ["Naive Bayer Gaussian", GaussianNB, {}],
+    ["SGD", SGDClassifier, {}],
+    ["Logistic Regression", LogisticRegression, {"multi_class": "Multinomial"}],
+    ["Linear Discriminant Analysis", LinearDiscriminantAnalysis, {}]
+]
 
 for dataset in datasets:
     name = dataset[0]
     train = dataset[1]
     test = dataset[2]
 
-    
-# onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
-# onevsrest.score(x_test, y_test)
-# tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
-# extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
-ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
-ovr_ada.score(x_test_single, y_test)
-ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
-ovr_tree.score(x_test_single, y_test)
-chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
-chain_tree.score(x_test_single, y_test)
-# chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
-# mcp = MLPClassifier(max_iter=500).fit(x_train, y_train)
-# mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
-mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
-mnb.score(x_test_single, y_test)
-lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
-lgd.score(x_test_single, y_test)
-log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
-log.score(x_test_single, y_test)
+    for classification in classifications:
+        clf_name = classification[0]
+        clf_params = classification[2]
+
+        if isinstance(clf_params, list):
+            for param in clf_params:
+                clf = classification[1](**param)
+                clf.fit(train, y_train)
+
+                clf_acc = clf.score(test, y_test)
+                
+                out = out.append(pd.DataFrame([[name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+        else:
+            params = clf_params
+            clf = classification[1](**params)
+            clf.fit(train, y_train)
+
+            clf_acc = clf.score(test, y_test)
+            
+            out = out.append(pd.DataFrame([[name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+
+out.to_csv("results.csv")
+
+for dataset in datasets:
+    name = dataset[0]
+    train = dataset[1]
+    test = dataset[2]
+
+    for classification in multiclass:
+        clf_name = classification[0]
+        clf_params = classification[2]
+
+        if isinstance(clf_params, list):
+            for param in clf_params:
+                clf = MultiOutputClassifier(classification[1](**param))
+                clf.fit(train, y_train)
+
+                clf_acc = clf.score(test, y_test)
+                
+                out = out.append(pd.DataFrame([["Multioutput "+name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+        else:
+            params = clf_params
+            clf = MultiOutputClassifier(classification[1](**params))
+            clf.fit(train, y_train)
+
+            clf_acc = clf.score(test, y_test)
+            
+            out = out.append(pd.DataFrame([["Multipoutput "+name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+
+out.to_csv("results_multioutput.csv")
+
+# # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
+# # onevsrest.score(x_test, y_test)
+# # tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
+# # extra = ExtraTreesClassifier(n_estimators=200).fit(x_train, y_train)
+# ovr_ada = MultiOutputClassifier(GradientBoostingClassifier(learning_rate=0.1, n_estimators=300)).fit(x_train_single, y_train)
+# ovr_ada.score(x_test_single, y_test)
+# ovr_tree = MultiOutputClassifier(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+# ovr_tree.score(x_test_single, y_test)
+# chain_tree = ClassifierChain(DecisionTreeClassifier(criterion="entropy")).fit(x_train_single, y_train)
+# chain_tree.score(x_test_single, y_test)
+# # chain_extra = ClassifierChain(ExtraTreesClassifier(n_estimators=100)).fit(x_train, y_train)
+# mcp = MLPClassifier().fit(x_train, y_train)
+# # mcp2 = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=500).fit(x_train, y_train)
+# mnb = MultiOutputClassifier(MultinomialNB()).fit(x_train_single, y_train)
+# mnb.score(x_test_single, y_test)
+# lgd = MultiOutputClassifier(SGDClassifier()).fit(x_train_single, y_train)
+# lgd.score(x_test_single, y_test)
+# log = MultiOutputClassifier(LogisticRegression()).fit(x_train_single, y_train)
+# log.score(x_test_single, y_test)
 
 # https://github.com/kk7nc/RMDL
-train_single = np.array(single)[train_index]
-test_single = np.array(single)[test_index]
+# train_single = np.array(single)[train_index]
+# test_single = np.array(single)[test_index]
 
-RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
-            #  batch_size=batch_size,
-            #  sparse_categorical=True,
-            #  random_deep=Random_Deep,
-             epochs=[20, 50, 50]) ## DNN--RNN-CNN
+# RMDL.RMDL_Text.Text_Classification(train_single, y_train, test_single, y_test,
+#             #  batch_size=batch_size,
+#             #  sparse_categorical=True,
+#             #  random_deep=Random_Deep,
+#              epochs=[20, 50, 50]) ## DNN--RNN-CNN
 
-print_cls = ovr_tree
+# print_cls = ovr_tree
 
-print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
-print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
+# print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
+# print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
