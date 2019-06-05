@@ -527,6 +527,7 @@ classifications = [
         ]]
 ]
 
+out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 
 multiclass = [
     ["Gradient Boosting", GradientBoostingClassifier, [
