@@ -529,7 +529,14 @@ classifications = [
 
 
 multiclass = [
-    ["Gradient Boosting", GradientBoostingClassifier, {"learning_rate": 0.1, "n_estimators": 300}],
+    ["Gradient Boosting", GradientBoostingClassifier, [
+        {"learning_rate": 0.1, "n_estimators": 100},
+        {"learning_rate": 0.1, "n_estimators": 200},
+        {"learning_rate": 0.1, "n_estimators": 300},
+        {"learning_rate": 0.02, "n_estimators": 100},
+        {"learning_rate": 0.02, "n_estimators": 200},
+        {"learning_rate": 0.02, "n_estimators": 300},
+        ]],
     ["Decision Tree", DecisionTreeClassifier, [
         {"criterion": "gini", "min_samples_leaf": 5},
         {"criterion": "gini", "min_samples_leaf": 10},
@@ -538,7 +545,17 @@ multiclass = [
         ]],
     ["Multinomial NB", MultinomialNB, {}],
     ["Naive Bayer Gaussian", GaussianNB, {}],
-    ["SGD", SGDClassifier, {}],
+    ["SGD", SGDClassifier, [
+        {"loss": "hinge", "penalty": "l2"},
+        {"loss": "log", "penalty": "l2"},
+        {"loss": "perceptron", "penalty": "l2"},
+        {"loss": "hinge", "penalty": "l1"},
+        {"loss": "log", "penalty": "l1"},
+        {"loss": "perceptron", "penalty": "l1"},
+        {"loss": "hinge", "penalty": "elasticnet"},
+        {"loss": "log", "penalty": "elasticnet"},
+        {"loss": "perceptron", "penalty": "elasticnet"},
+        ]],
     ["Logistic Regression", LogisticRegression, {"multi_class": "Multinomial"}],
     ["Linear Discriminant Analysis", LinearDiscriminantAnalysis, {}]
 ]
