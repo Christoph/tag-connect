@@ -436,14 +436,14 @@ x_train_single = single_vecs[train_index]
 x_test_single = single_vecs[test_index]
 
 datasets = [
-    ["fulltext tfidf",x_train_full, x_test_full],
+    # ["fulltext tfidf",x_train_full, x_test_full],
     ["fulltext nmf 10",x_train_nmf_10, x_test_nmf_10],
     ["fulltext nmf 15",x_train_nmf_15, x_test_nmf_15],
     ["fulltext nmf 20",x_train_nmf_20, x_test_nmf_20],
     ["fulltext tfidf svd 20",x_train_svd_20, x_test_svd_20],
     ["fulltext tfidf svd 50",x_train_svd_50, x_test_svd_50],
     ["fulltext tfidf svd 100",x_train_svd_100, x_test_svd_100],
-    ["abstract tfidf",x_train_abstract, x_test_abstract],
+    # ["abstract tfidf",x_train_abstract, x_test_abstract],
     ["abstract nmf 10",x_train_abstract_nmf_10, x_test_abstract_nmf_10],
     ["abstract nmf 15",x_train_abstract_nmf_15, x_test_abstract_nmf_15],
     ["abstract nmf 20",x_train_abstract_nmf_20, x_test_abstract_nmf_20],
@@ -460,25 +460,25 @@ out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 classifications = [
     ["DecisionTree", DecisionTreeClassifier, [
         {"criterion": "gini", "min_samples_leaf": 5},
-        {"criterion": "gini", "min_samples_leaf": 10},
+        # {"criterion": "gini", "min_samples_leaf": 10},
         {"criterion": "entropy", "min_samples_leaf": 5},
-        {"criterion": "entropy", "min_samples_leaf": 10},
+        # {"criterion": "entropy", "min_samples_leaf": 10},
         ]],
-    ["ExtraTree", ExtraTreeClassifier, [
-        {"criterion": "gini", "min_samples_leaf": 5},
-        {"criterion": "gini", "min_samples_leaf": 10},
-        {"criterion": "entropy", "min_samples_leaf": 5},
-        {"criterion": "entropy", "min_samples_leaf": 10},
-        ]],
+    # ["ExtraTree", ExtraTreeClassifier, [
+    #     {"criterion": "gini", "min_samples_leaf": 5},
+    #     {"criterion": "gini", "min_samples_leaf": 10},
+    #     {"criterion": "entropy", "min_samples_leaf": 5},
+    #     {"criterion": "entropy", "min_samples_leaf": 10},
+    #     ]],
     ["Extra Tree Ensemble", ExtraTreesClassifier, [
-        {"n_estimators": 100, "min_samples_leaf": 5},
+        # {"n_estimators": 100, "min_samples_leaf": 5},
         {"n_estimators": 200, "min_samples_leaf": 5},
-        {"n_estimators": 100, "min_samples_leaf": 10},
+        # {"n_estimators": 100, "min_samples_leaf": 10},
         {"n_estimators": 200, "min_samples_leaf": 10},
-        {"n_estimators": 100, "min_samples_leaf": 5},
-        {"n_estimators": 200, "min_samples_leaf": 5},
-        {"n_estimators": 100, "min_samples_leaf": 10},
-        {"n_estimators": 200, "min_samples_leaf": 10},
+        # {"n_estimators": 100, "min_samples_leaf": 5},
+        # {"n_estimators": 200, "min_samples_leaf": 5},
+        # {"n_estimators": 100, "min_samples_leaf": 10},
+        # {"n_estimators": 200, "min_samples_leaf": 10},
         ]],
     ["kneighbors", KNeighborsClassifier, [
         {"n_neighbors": 5},
@@ -486,48 +486,79 @@ classifications = [
         {"n_neighbors": 15},
         ]],
     ["Random Forest", RandomForestClassifier, [
-        {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 5},
-        {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 5},
+        # {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 5},
+        # {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 5},
         {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 5},
-        {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 5},
-        {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 5},
+        # {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 5},
+        # {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 5},
         {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 5},
-        {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 10},
-        {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 10},
+        # {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 10},
+        # {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 10},
         {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 10},
-        {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 10},
-        {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 10},
+        # {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 10},
+        # {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 10},
         {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 10},
         ]],
     ["MLP", MLPClassifier, [
-        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "constant"},
-        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "constant"},
-        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "constant"},
-        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "invscaling"},
+        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "invscaling"},
+        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "adaptive"},
+        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "adaptive"},
+        # {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "constant"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
         {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "constant"},
-        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "constant"},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "constant"},
-        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "invscaling"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "invscaling"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "adaptive"},
+        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "adaptive"},
+        # {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "constant"},
+        # {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "constant"},
         {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "invscaling"},
         {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "invscaling"},
         {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "adaptive"},
         {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "adaptive"},
         ]]
 ]
-
 out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
+
+for data_id, dataset in enumerate(datasets):
+    name = dataset[0]
+    train = dataset[1]
+    test = dataset[2]
+
+    for cls_id, classification in enumerate(classifications):
+        clf_name = classification[0]
+        clf_params = classification[2]
+
+        if isinstance(clf_params, list):
+            for param in clf_params:
+                clf = classification[1](**param)
+                clf.fit(train, y_train)
+
+                clf_acc = clf.score(test, y_test)
+                
+                out = out.append(pd.DataFrame([[name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+        else:
+            params = clf_params
+            clf = classification[1](**params)
+            clf.fit(train, y_train)
+
+            clf_acc = clf.score(test, y_test)
+            
+            out = out.append(pd.DataFrame([[name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+
+        print("Dataset: "+str(data_id+1)+"/"+str(len(datasets))+", Classification: "+str(cls_id+1)+"/"+str(len(classifications)))
+
+out.to_csv("results.csv")
+
+
 
 multiclass = [
     ["Gradient Boosting", GradientBoostingClassifier, [
@@ -560,34 +591,7 @@ multiclass = [
     ["Logistic Regression", LogisticRegression, {"multi_class": "Multinomial"}],
     ["Linear Discriminant Analysis", LinearDiscriminantAnalysis, {}]
 ]
-
-for dataset in datasets:
-    name = dataset[0]
-    train = dataset[1]
-    test = dataset[2]
-
-    for classification in classifications:
-        clf_name = classification[0]
-        clf_params = classification[2]
-
-        if isinstance(clf_params, list):
-            for param in clf_params:
-                clf = classification[1](**param)
-                clf.fit(train, y_train)
-
-                clf_acc = clf.score(test, y_test)
-                
-                out = out.append(pd.DataFrame([[name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
-        else:
-            params = clf_params
-            clf = classification[1](**params)
-            clf.fit(train, y_train)
-
-            clf_acc = clf.score(test, y_test)
-            
-            out = out.append(pd.DataFrame([[name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
-
-out.to_csv("results.csv")
+out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 
 for dataset in datasets:
     name = dataset[0]
