@@ -301,6 +301,14 @@ def get_top_words(model, tfidf, n_top_words):
 #     })
 
 # projections.to_json("projections_keywords_single.json", orient="index")
+# Ground truth
+# enc = MultiLabelBinarizer()
+# enc.fit([cluster.split(";") for cluster in meta["Clusters"].tolist()])
+
+# y = np.array([enc.transform([x.split(";")])[0] for x in meta["Clusters"]])
+
+# pd.DataFrame(y).to_json("all_labels.json", orient="values")
+
 
 # Automatic performance measurement
 
