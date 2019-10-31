@@ -309,12 +309,36 @@ def get_top_words(model, tfidf, n_top_words):
 
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
 
+# New data preparation
+meta = pd.read_json("datasets/new_data.json", orient="index").sort_index()
+
+abstracts = list(meta["Abstract"])
+keywords = ["" if key == None else key for key in list(list(meta["keywords"]))]
+
+single = [preprocess(key, stopwords) for key in keywords]
+single_tfidf = TfidfVectorizer().fit(single)
+single_vecs = single_tfidf.transform(single)
+
+abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts)
+abstract_vecs = abstract_tfidf.transform(abstracts)
+
+abstract_svd = TruncatedSVD(20).fit_transform(abstract_vecs)
+keyword_svd = TruncatedSVD(20).fit_transform(single_vecs)
+
+meta['Keyword_Vector'] = meta['Keyword_Vector'].astype(object)
+meta['Abstract_Vector'] = meta['Abstract_Vector'].astype(object)
+
+for i in meta.index:
+    meta.at[i, "Keyword_Vector"] = list(pd.Series(keyword_svd[i]))
+    meta.at[i, "Abstract_Vector"] = list(pd.Series(keyword_svd[i]))
+
+meta.to_json("new_data.json", orient="index")
 
 # Automatic performance measurement
 
 # Parameters:
 # Data - fulltexts, abstracts, keywords_single, keywords_multi
-# Embedding - 
+# Embedding -
 
 # data
 meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
@@ -331,7 +355,6 @@ fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_in
 
 # abstracts
 abstracts = list(meta["Abstract"])
-
 
 # keywords
 keywords = meta["Keywords"]
@@ -551,7 +574,7 @@ for data_id, dataset in enumerate(datasets):
                 clf.fit(train, y_train)
 
                 clf_acc = clf.score(test, y_test)
-                
+
                 out = out.append(pd.DataFrame([[name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
         else:
             params = clf_params
@@ -559,7 +582,7 @@ for data_id, dataset in enumerate(datasets):
             clf.fit(train, y_train)
 
             clf_acc = clf.score(test, y_test)
-            
+
             out = out.append(pd.DataFrame([[name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
 
         print("Dataset: "+str(data_id+1)+"/"+str(len(datasets))+", Classification: "+str(cls_id+1)+"/"+str(len(classifications)))
@@ -616,7 +639,7 @@ for dataset in datasets:
                 clf.fit(train, y_train)
 
                 clf_acc = clf.score(test, y_test)
-                
+
                 out = out.append(pd.DataFrame([["Multioutput "+name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
         else:
             params = clf_params
@@ -624,7 +647,7 @@ for dataset in datasets:
             clf.fit(train, y_train)
 
             clf_acc = clf.score(test, y_test)
-            
+
             out = out.append(pd.DataFrame([["Multipoutput "+name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
 
 out.to_csv("results_multioutput.csv")
