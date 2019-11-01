@@ -310,10 +310,10 @@ def get_top_words(model, tfidf, n_top_words):
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
 
 # New data preparation
-meta = pd.read_json("datasets/new_data.json", orient="index").sort_index()
+meta = pd.read_json("datasets/new_data.json", orient="index").sort_index().dropna().reset_index()
 
 abstracts = list(meta["Abstract"])
-keywords = ["" if key == None else key for key in list(list(meta["keywords"]))]
+keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
 
 single = [preprocess(key, stopwords) for key in keywords]
 single_tfidf = TfidfVectorizer().fit(single)
@@ -325,12 +325,15 @@ abstract_vecs = abstract_tfidf.transform(abstracts)
 abstract_svd = TruncatedSVD(20).fit_transform(abstract_vecs)
 keyword_svd = TruncatedSVD(20).fit_transform(single_vecs)
 
+meta["Keyword_Vector"] = ""
 meta['Keyword_Vector'] = meta['Keyword_Vector'].astype(object)
+
+meta["Abstract_Vector"] = ""
 meta['Abstract_Vector'] = meta['Abstract_Vector'].astype(object)
 
 for i in meta.index:
     meta.at[i, "Keyword_Vector"] = list(pd.Series(keyword_svd[i]))
-    meta.at[i, "Abstract_Vector"] = list(pd.Series(keyword_svd[i]))
+    meta.at[i, "Abstract_Vector"] = list(pd.Series(abstract_svd[i]))
 
 meta.to_json("new_data.json", orient="index")
 
