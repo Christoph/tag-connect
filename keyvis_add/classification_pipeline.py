@@ -310,6 +310,9 @@ def get_top_words(model, tfidf, n_top_words):
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
 
 # New data preparation
+old_data = pd.read_json("datasets/meta.json", orient="index")
+old_abstracts = list(old_data["Abstracts"])
+
 meta = pd.read_json("datasets/new_data.json", orient="index").sort_index().dropna().reset_index()
 
 abstracts = list(meta["Abstract"])
@@ -336,6 +339,11 @@ for i in meta.index:
     meta.at[i, "Abstract_Vector"] = list(pd.Series(abstract_svd[i]))
 
 meta.to_json("new_data.json", orient="index")
+
+#Create consistent author keyword mapping using stemming
+
+out_keywords = pd.DataFrame(pd.Series(mapping))[0].apply(lambda x: list(x))
+out_keywords.to_json("keyword_mapping.json", orient="index")
 
 # Automatic performance measurement
 
