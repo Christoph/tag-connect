@@ -1,3 +1,5 @@
+import sys
+from os import path
 from importlib import reload
 
 import re
@@ -12,6 +14,7 @@ from nltk.corpus import stopwords
 import spacy
 from sklearn.manifold import TSNE, MDS
 from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn.model_selection import train_test_split
 
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
@@ -37,8 +40,6 @@ nlp = spacy.load('en', disable=['ner'])
 stop_words = stopwords.words('english')
 
 # Add general functions to the project
-from os import path
-import sys
 sys.path.append(path.abspath('../methods'))
 
 # import embedding
@@ -52,27 +53,36 @@ def lemmatization(text, stopwords):
     regexr = text.replace(";", " ")
     for sent in nlp(regexr).sents:
         temp = " ".join((token.lemma_ for token in sent if
-                                   token.lemma_ not in stop_words and
-                                   len(token.lemma_) > 1 and
-                                   not token.lemma_ == "-PRON-"))
+                         token.lemma_ not in stop_words and
+                         len(token.lemma_) > 1 and
+                         not token.lemma_ == "-PRON-"))
         texts_out.append(temp)
     return " ".join(texts_out)
 
 
-def preprocess(text, stopwords):
+def preprocess(text, stopwords, remove_num=True, merge_char=" "):
     """https://spacy.io/api/annotation"""
     texts_out = []
-    regexr = re.sub(r"[^a-zA-Z0-9 _]*", "", text.replace(";", " "))
+    regexr = re.sub(r"[^a-zA-Z0-9.;!? ]*", "",
+                    text.lower().replace("-", " ").replace("_", " "))
     for doc in nlp(regexr).sents:
-        temp = " ".join((token.lemma_ for token in doc if
-                                   not token.like_num and
-                                   not token.like_url and
-                                   not token.like_email and
-                                   token.lemma_ not in stop_words and
-                                   len(token.lemma_) > 1 and
-                                   not token.lemma_ == "-PRON-"))
+        if(remove_num):
+            temp = " ".join((token.lemma_ for token in doc if
+                             not token.like_num and
+                             not token.like_url and
+                             not token.like_email and
+                             token.lemma_ not in stop_words and
+                             len(token.lemma_) > 1 and
+                             not token.lemma_ == "-PRON-"))
+        else:
+            temp = " ".join((token.lemma_ for token in doc if
+                             not token.like_url and
+                             not token.like_email and
+                             token.lemma_ not in stop_words and
+                             len(token.lemma_) > 1 and
+                             not token.lemma_ == "-PRON-"))
         texts_out.append(temp)
-    return " ".join(texts_out)
+    return merge_char.join(texts_out)
 
 
 def get_top_words(model, tfidf, n_top_words):
@@ -82,7 +92,8 @@ def get_top_words(model, tfidf, n_top_words):
     vocab = tfidf.vocabulary_
 
     for topic_idx, topic in enumerate(model.components_):
-        words = [(feature_names[i], idf[vocab[feature_names[i]]]) for i in topic.argsort()[:-n_top_words - 1:-1]]
+        words = [(feature_names[i], idf[vocab[feature_names[i]]])
+                 for i in topic.argsort()[:-n_top_words - 1:-1]]
         out.append(words)
     return out
 
@@ -104,7 +115,6 @@ def get_top_words(model, tfidf, n_top_words):
 # keywords = meta["Keywords"]
 # # Remove leading and trailing ;
 # meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
-
 
 
 # # CLASSIFICATION
@@ -308,25 +318,99 @@ def get_top_words(model, tfidf, n_top_words):
 # y = np.array([enc.transform([x.split(";")])[0] for x in meta["Clusters"]])
 
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
-
 # New data preparation
+# Prepare dimensions
 old_data = pd.read_json("datasets/meta.json", orient="index")
-old_abstracts = list(old_data["Abstracts"])
+old_abstracts = list(old_data["Abstract"])
+old_keywords = ["" if key == None else key for key in list(
+    list(old_data["Keywords"]))]
 
-meta = pd.read_json("datasets/new_data.json", orient="index").sort_index().dropna().reset_index()
-
+meta = pd.read_json("datasets/new_data.json", orient="index")
 abstracts = list(meta["Abstract"])
 keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
 
-single = [preprocess(key, stopwords) for key in keywords]
-single_tfidf = TfidfVectorizer().fit(single)
+# Create vectors
+# Keywords
+single = [preprocess(key, [], remove_num=False, merge_char=";")
+          for key in keywords]
+single_tfidf = TfidfVectorizer(stop_words=stop_words).fit(single)
+
+old_single = [preprocess(key, [], remove_num=False, merge_char=";")
+              for key in old_keywords]
+single_tfidf.fit(old_single)
+
 single_vecs = single_tfidf.transform(single)
+old_single_vecs = single_tfidf.transform(old_single)
 
-abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts)
-abstract_vecs = abstract_tfidf.transform(abstracts)
+dim = 0
+target = 0
 
-abstract_svd = TruncatedSVD(20).fit_transform(abstract_vecs)
-keyword_svd = TruncatedSVD(20).fit_transform(single_vecs)
+while target < 0.3:
+    # Increase dimensionality
+    dim = dim + 2
+
+    # Fit svd
+    keyword_svd = TruncatedSVD(dim).fit(single_vecs)
+    keyword_svd.fit(old_single_vecs)
+
+    # Get explained variance
+    variance = keyword_svd.explained_variance_ratio_.sum()
+
+    if(variance >= target):
+        target = variance
+    else:
+        changing = False
+
+    if(dim > 200):
+        changing = False
+
+keyword_svd = TruncatedSVD(dim).fit(single_vecs)
+keyword_svd.fit(old_single_vecs)
+
+keyword_svd_vecs = keyword_svd.transform(single_vecs)
+old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
+
+# Abstracts
+ab = [preprocess(a, stop_words, remove_num=False) for a in abstracts]
+old_ab = [preprocess(a, stop_words, remove_num=False) for a in old_abstracts]
+
+abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(ab)
+abstract_tfidf.fit(old_ab)
+
+abstract_vecs = abstract_tfidf.transform(ab)
+old_abstract_vecs = abstract_tfidf.transform(old_ab)
+
+dim = 0
+target = 0
+
+while target < 0.3:
+    # Increase dimensionality
+    dim = dim + 2
+
+    # Fit svd
+    abstract_svd = TruncatedSVD(dim).fit(abstract_vecs)
+    abstract_svd.fit(old_abstract_vecs)
+
+    # Get explained variance
+    variance = abstract_svd.explained_variance_ratio_.sum()
+
+    if(variance >= target):
+        target = variance
+    else:
+        changing = False
+
+    if(dim > 200):
+        changing = False
+
+abstract_svd = TruncatedSVD(dim).fit(abstract_vecs)
+abstract_svd.fit(old_abstract_vecs)
+
+abstract_svd_vecs = abstract_svd.transform(abstract_vecs)
+old_abstract_svd_vecs = abstract_svd.transform(old_abstract_vecs)
+
+# Structuring and saving data
+meta = meta.drop(["level_0", "index"], axis=1)
+meta["Keywords_Processed"] = single
 
 meta["Keyword_Vector"] = ""
 meta['Keyword_Vector'] = meta['Keyword_Vector'].astype(object)
@@ -335,15 +419,46 @@ meta["Abstract_Vector"] = ""
 meta['Abstract_Vector'] = meta['Abstract_Vector'].astype(object)
 
 for i in meta.index:
-    meta.at[i, "Keyword_Vector"] = list(pd.Series(keyword_svd[i]))
-    meta.at[i, "Abstract_Vector"] = list(pd.Series(abstract_svd[i]))
+    meta.at[i, "Keyword_Vector"] = list(pd.Series(keyword_svd_vecs[i]))
+    meta.at[i, "Abstract_Vector"] = list(pd.Series(abstract_svd_vecs[i]))
 
 meta.to_json("new_data.json", orient="index")
 
-#Create consistent author keyword mapping using stemming
+old_data = old_data.drop(["type"], axis=1)
+old_data["Keywords_Processed"] = old_single
 
-out_keywords = pd.DataFrame(pd.Series(mapping))[0].apply(lambda x: list(x))
-out_keywords.to_json("keyword_mapping.json", orient="index")
+old_data["Keyword_Vector"] = ""
+old_data['Keyword_Vector'] = old_data['Keyword_Vector'].astype(object)
+
+old_data["Abstract_Vector"] = ""
+old_data['Abstract_Vector'] = old_data['Abstract_Vector'].astype(object)
+
+for i in old_data.index:
+    old_data.at[i, "Keyword_Vector"] = list(pd.Series(old_keyword_svd_vecs[i]))
+    old_data.at[i, "Abstract_Vector"] = list(
+        pd.Series(old_abstract_svd_vecs[i]))
+
+old_data.to_json("old_data.json", orient="index")
+
+# Export study data
+meta = pd.read_json("datasets/new_data.json", orient="index")
+mapping = pd.read_json("datasets/mapping.json", orient="index")
+classes = pd.read_json("datasets/classes.json")
+
+study_data = meta.drop(["Abstract_Vector", "Keyword_Vector"], axis=1)
+study_data["Labels"] = ""
+
+manual_data, tool_data = train_test_split(study_data, test_size=0.5)
+mapping_data = mapping.drop(
+    ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
+mapping_data.columns = ["Keyword", "Label"]
+label_data = classes.drop([0])
+label_data.columns = ["Label"]
+
+manual_data.to_csv("manual_data.csv", index=False)
+tool_data.to_csv("tool_data.csv", index=False)
+mapping_data.to_csv("mapping.csv", index=False)
+label_data.to_csv("labels.csv", index=False)
 
 # Automatic performance measurement
 
@@ -362,28 +477,33 @@ test_index = meta[meta["type"] == "new"].index  # len = 197
 train_index = meta.drop(test_index).index  # len = 1280
 
 # fulltexts
-fulltexts = pd.read_json("datasets/fulltext_lemma.json", orient="index").sort_index()
+fulltexts = pd.read_json("datasets/fulltext_lemma.json",
+                         orient="index").sort_index()
 
 # abstracts
 abstracts = list(meta["Abstract"])
 
 # keywords
 keywords = meta["Keywords"]
-multi = [preprocess(key.replace(" ", "_"), stopwords) for key in keywords.tolist()]
+multi = [preprocess(key.replace(" ", "_"), stopwords)
+         for key in keywords.tolist()]
 single = [preprocess(key, stopwords) for key in keywords.tolist()]
 
 # embedding
 # y
 enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";") for cluster in meta.iloc[train_index]["Clusters"].tolist()])
+enc.fit([cluster.split(";")
+         for cluster in meta.iloc[train_index]["Clusters"].tolist()])
 
-y_train = np.vstack(meta.iloc[train_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
-y_test = np.vstack(meta.iloc[test_index].apply(lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+y_train = np.vstack(meta.iloc[train_index].apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+y_test = np.vstack(meta.iloc[test_index].apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
 classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
 
 # x
-#fulltext
+# fulltext
 fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
 fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
 
@@ -443,8 +563,8 @@ x_train_svd_50 = svd[train_index]
 x_test_svd_50 = svd[test_index]
 
 svd = TruncatedSVD(20).fit_transform(fulltext_vecs)
-x_train_svd_20= svd[train_index]
-x_test_svd_20= svd[test_index]
+x_train_svd_20 = svd[train_index]
+x_test_svd_20 = svd[test_index]
 
 svd = TruncatedSVD(100).fit_transform(fulltext_vecs)
 x_train_svd_100 = svd[train_index]
@@ -455,8 +575,8 @@ x_train_abstract_svd_50 = svd[train_index]
 x_test_abstract_svd_50 = svd[test_index]
 
 svd = TruncatedSVD(20).fit_transform(abstract_vecs)
-x_train_abstract_svd_20= svd[train_index]
-x_test_abstract_svd_20= svd[test_index]
+x_train_abstract_svd_20 = svd[train_index]
+x_test_abstract_svd_20 = svd[test_index]
 
 svd = TruncatedSVD(100).fit_transform(abstract_vecs)
 x_train_abstract_svd_100 = svd[train_index]
@@ -479,22 +599,22 @@ x_test_single = single_vecs[test_index]
 
 datasets = [
     # ["fulltext tfidf",x_train_full, x_test_full],
-    ["fulltext nmf 10",x_train_nmf_10, x_test_nmf_10],
-    ["fulltext nmf 15",x_train_nmf_15, x_test_nmf_15],
-    ["fulltext nmf 20",x_train_nmf_20, x_test_nmf_20],
-    ["fulltext tfidf svd 20",x_train_svd_20, x_test_svd_20],
-    ["fulltext tfidf svd 50",x_train_svd_50, x_test_svd_50],
-    ["fulltext tfidf svd 100",x_train_svd_100, x_test_svd_100],
+    ["fulltext nmf 10", x_train_nmf_10, x_test_nmf_10],
+    ["fulltext nmf 15", x_train_nmf_15, x_test_nmf_15],
+    ["fulltext nmf 20", x_train_nmf_20, x_test_nmf_20],
+    ["fulltext tfidf svd 20", x_train_svd_20, x_test_svd_20],
+    ["fulltext tfidf svd 50", x_train_svd_50, x_test_svd_50],
+    ["fulltext tfidf svd 100", x_train_svd_100, x_test_svd_100],
     # ["abstract tfidf",x_train_abstract, x_test_abstract],
-    ["abstract nmf 10",x_train_abstract_nmf_10, x_test_abstract_nmf_10],
-    ["abstract nmf 15",x_train_abstract_nmf_15, x_test_abstract_nmf_15],
-    ["abstract nmf 20",x_train_abstract_nmf_20, x_test_abstract_nmf_20],
-    ["abstract tfidf svd 20",x_train_abstract_svd_20, x_test_abstract_svd_20],
-    ["abstract tfidf svd 50",x_train_abstract_svd_50, x_test_abstract_svd_50],
-    ["abstract tfidf svd 100",x_train_abstract_svd_100,x_test_abstract_svd_100],
-    ["keywords multi-word",x_train_multi, x_test_multi],
-    ["keywords single-word",x_train_single, x_test_single]
-    ]
+    ["abstract nmf 10", x_train_abstract_nmf_10, x_test_abstract_nmf_10],
+    ["abstract nmf 15", x_train_abstract_nmf_15, x_test_abstract_nmf_15],
+    ["abstract nmf 20", x_train_abstract_nmf_20, x_test_abstract_nmf_20],
+    ["abstract tfidf svd 20", x_train_abstract_svd_20, x_test_abstract_svd_20],
+    ["abstract tfidf svd 50", x_train_abstract_svd_50, x_test_abstract_svd_50],
+    ["abstract tfidf svd 100", x_train_abstract_svd_100, x_test_abstract_svd_100],
+    ["keywords multi-word", x_train_multi, x_test_multi],
+    ["keywords single-word", x_train_single, x_test_single]
+]
 
 # classification
 out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
@@ -505,7 +625,7 @@ classifications = [
         # {"criterion": "gini", "min_samples_leaf": 10},
         {"criterion": "entropy", "min_samples_leaf": 5},
         # {"criterion": "entropy", "min_samples_leaf": 10},
-        ]],
+    ]],
     # ["ExtraTree", ExtraTreeClassifier, [
     #     {"criterion": "gini", "min_samples_leaf": 5},
     #     {"criterion": "gini", "min_samples_leaf": 10},
@@ -521,12 +641,12 @@ classifications = [
         # {"n_estimators": 200, "min_samples_leaf": 5},
         # {"n_estimators": 100, "min_samples_leaf": 10},
         # {"n_estimators": 200, "min_samples_leaf": 10},
-        ]],
+    ]],
     ["kneighbors", KNeighborsClassifier, [
         {"n_neighbors": 5},
         {"n_neighbors": 10},
         {"n_neighbors": 15},
-        ]],
+    ]],
     ["Random Forest", RandomForestClassifier, [
         # {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 5},
         # {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 5},
@@ -540,7 +660,7 @@ classifications = [
         # {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 10},
         # {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 10},
         {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 10},
-        ]],
+    ]],
     ["MLP", MLPClassifier, [
         # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "constant"},
         # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "constant"},
@@ -550,8 +670,10 @@ classifications = [
         # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "adaptive"},
         # {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "constant"},
         # {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "constant"},
-        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 100, "activation": "relu",
+            "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": 100, "activation": "tanh",
+            "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
         {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "adaptive"},
         # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "constant"},
@@ -562,11 +684,15 @@ classifications = [
         # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "adaptive"},
         # {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "constant"},
         # {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "constant"},
-        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "adaptive"},
-        ]]
+        {"hidden_layer_sizes": (100, 50), "activation": "relu",
+         "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 50), "activation": "tanh",
+         "learning_rate": "invscaling"},
+        {"hidden_layer_sizes": (100, 50), "activation": "relu",
+         "learning_rate": "adaptive"},
+        {"hidden_layer_sizes": (100, 50), "activation": "tanh",
+         "learning_rate": "adaptive"},
+    ]]
 ]
 out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 
@@ -586,7 +712,8 @@ for data_id, dataset in enumerate(datasets):
 
                 clf_acc = clf.score(test, y_test)
 
-                out = out.append(pd.DataFrame([[name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+                out = out.append(pd.DataFrame([[name, clf_name, str(param), clf_acc]], columns=[
+                                 "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
         else:
             params = clf_params
             clf = classification[1](**params)
@@ -594,12 +721,13 @@ for data_id, dataset in enumerate(datasets):
 
             clf_acc = clf.score(test, y_test)
 
-            out = out.append(pd.DataFrame([[name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+            out = out.append(pd.DataFrame([[name, clf_name, str(clf_params), clf_acc]], columns=[
+                             "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
 
-        print("Dataset: "+str(data_id+1)+"/"+str(len(datasets))+", Classification: "+str(cls_id+1)+"/"+str(len(classifications)))
+        print("Dataset: "+str(data_id+1)+"/"+str(len(datasets)) +
+              ", Classification: "+str(cls_id+1)+"/"+str(len(classifications)))
 
 out.to_csv("results.csv")
-
 
 
 multiclass = [
@@ -610,13 +738,13 @@ multiclass = [
         {"learning_rate": 0.02, "n_estimators": 100},
         {"learning_rate": 0.02, "n_estimators": 200},
         {"learning_rate": 0.02, "n_estimators": 300},
-        ]],
+    ]],
     ["Decision Tree", DecisionTreeClassifier, [
         {"criterion": "gini", "min_samples_leaf": 5},
         {"criterion": "gini", "min_samples_leaf": 10},
         {"criterion": "entropy", "min_samples_leaf": 5},
         {"criterion": "entropy", "min_samples_leaf": 10},
-        ]],
+    ]],
     ["Multinomial NB", MultinomialNB, {}],
     ["Naive Bayer Gaussian", GaussianNB, {}],
     ["SGD", SGDClassifier, [
@@ -629,8 +757,9 @@ multiclass = [
         {"loss": "hinge", "penalty": "elasticnet"},
         {"loss": "log", "penalty": "elasticnet"},
         {"loss": "perceptron", "penalty": "elasticnet"},
-        ]],
-    ["Logistic Regression", LogisticRegression, {"multi_class": "Multinomial"}],
+    ]],
+    ["Logistic Regression", LogisticRegression,
+        {"multi_class": "Multinomial"}],
     ["Linear Discriminant Analysis", LinearDiscriminantAnalysis, {}]
 ]
 out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
@@ -651,7 +780,8 @@ for dataset in datasets:
 
                 clf_acc = clf.score(test, y_test)
 
-                out = out.append(pd.DataFrame([["Multioutput "+name,clf_name,str(param),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+                out = out.append(pd.DataFrame([["Multioutput "+name, clf_name, str(param), clf_acc]], columns=[
+                                 "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
         else:
             params = clf_params
             clf = MultiOutputClassifier(classification[1](**params))
@@ -659,7 +789,8 @@ for dataset in datasets:
 
             clf_acc = clf.score(test, y_test)
 
-            out = out.append(pd.DataFrame([["Multipoutput "+name,clf_name,str(clf_params),clf_acc]], columns=["Dataset", "Method", "Params","Accuracy"]), ignore_index=True)
+            out = out.append(pd.DataFrame([["Multipoutput "+name, clf_name, str(clf_params), clf_acc]], columns=[
+                             "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
 
 out.to_csv("results_multioutput.csv")
 
