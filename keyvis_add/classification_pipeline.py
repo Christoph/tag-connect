@@ -75,7 +75,7 @@ def preprocess_keywords(text, sep=";", merge_char=";"):
                             not token.lemma_ == "-PRON-" and
                             str(token) != "."))
         texts_out.append(temp)
-    
+
     # Make sure each keyword is unique
     texts_out = list(set(texts_out))
     return merge_char.join(texts_out)
@@ -105,7 +105,7 @@ def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
                              len(token.lemma_) > 1 and
                              not token.lemma_ == "-PRON-"))
         texts_out.append(temp)
-    
+
     return merge_char.join(texts_out)
 
 
@@ -464,7 +464,22 @@ for i in old_data.index:
 old_data.to_json("old_data.json", orient="index")
 
 # Normalize all keywords
+mapping = pd.read_json("datasets/mapping.json", orient="index")
+classes = pd.read_json("datasets/classes.json")
 
+for index, row in mapping.iterrows():
+    keyword = row["AuthorKeyword"]
+    label = row["ExpertKeyword"]
+
+    cleared = preprocess_keywords(keyword)
+    clear_label = re.sub(r"[ ]+", " ", label.replace("-", " "))
+
+    fixed_label = "".join([word.capitalize() for word in clear_label.split(" ")])
+
+    mapping.set_value(index, 'AuthorKeyword', cleared)
+    mapping.set_value(index, 'ExpertKeyword', fixed_label)
+
+mapping.to_json("mapping.json", orient="index")
 
 # Export study data
 meta = pd.read_json("datasets/new_data.json", orient="index")
