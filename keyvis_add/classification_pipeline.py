@@ -59,13 +59,36 @@ def lemmatization(text, stopwords):
         texts_out.append(temp)
     return " ".join(texts_out)
 
-
-def preprocess(text, stopwords, remove_num=True, merge_char=" "):
+def preprocess_keywords(text, sep=";", merge_char=";"):
     """https://spacy.io/api/annotation"""
     texts_out = []
-    regexr = re.sub(r"[^a-zA-Z0-9.;!? ]*", "",
-                    text.lower().replace("-", " ").replace("_", " "))
-    for doc in nlp(regexr).sents:
+    # replace non characers with space
+    regexr = re.sub(r"[^a-zA-Z0-9. ]+", " ", text.replace(sep, "."))
+    # merge multiple spaces to a single one
+    cleared = re.sub(r"[[ ]+", " ", regexr)
+
+    # for doc in nlp(cleared).sents:
+    for keyword in cleared.split("."):
+        doc = nlp(keyword)
+        temp = " ".join((token.lemma_ for token in doc if
+                            len(token.lemma_) > 1 and
+                            not token.lemma_ == "-PRON-" and
+                            str(token) != "."))
+        texts_out.append(temp)
+    
+    # Make sure each keyword is unique
+    texts_out = list(set(texts_out))
+    return merge_char.join(texts_out)
+
+def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    # replace non characers with space
+    regexr = re.sub(r"[^a-zA-Z0-9.!? ]*", " ", text)
+    # merge multiple spaces to a single one
+    cleared = re.sub(r"[ ]*", " ", regexr)
+
+    for doc in nlp(cleared).sents:
         if(remove_num):
             temp = " ".join((token.lemma_ for token in doc if
                              not token.like_num and
@@ -82,6 +105,7 @@ def preprocess(text, stopwords, remove_num=True, merge_char=" "):
                              len(token.lemma_) > 1 and
                              not token.lemma_ == "-PRON-"))
         texts_out.append(temp)
+    
     return merge_char.join(texts_out)
 
 
@@ -331,11 +355,10 @@ keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
 
 # Create vectors
 # Keywords
-single = [preprocess(key, [], remove_num=False, merge_char=";")
-          for key in keywords]
+single = [preprocess_keywords(key) for key in keywords]
 single_tfidf = TfidfVectorizer(stop_words=stop_words).fit(single)
 
-old_single = [preprocess(key, [], remove_num=False, merge_char=";")
+old_single = [preprocess_keywords(key)
               for key in old_keywords]
 single_tfidf.fit(old_single)
 
@@ -371,8 +394,8 @@ keyword_svd_vecs = keyword_svd.transform(single_vecs)
 old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
 
 # Abstracts
-ab = [preprocess(a, stop_words, remove_num=False) for a in abstracts]
-old_ab = [preprocess(a, stop_words, remove_num=False) for a in old_abstracts]
+ab = [preprocess_text(a, stop_words, remove_num=False) for a in abstracts]
+old_ab = [preprocess_text(a, stop_words, remove_num=False) for a in old_abstracts]
 
 abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(ab)
 abstract_tfidf.fit(old_ab)
@@ -440,6 +463,9 @@ for i in old_data.index:
 
 old_data.to_json("old_data.json", orient="index")
 
+# Normalize all keywords
+
+
 # Export study data
 meta = pd.read_json("datasets/new_data.json", orient="index")
 mapping = pd.read_json("datasets/mapping.json", orient="index")
@@ -485,9 +511,9 @@ abstracts = list(meta["Abstract"])
 
 # keywords
 keywords = meta["Keywords"]
-multi = [preprocess(key.replace(" ", "_"), stopwords)
+multi = [preprocess_keywords(key.replace(" ", "_"), stopwords)
          for key in keywords.tolist()]
-single = [preprocess(key, stopwords) for key in keywords.tolist()]
+single = [preprocess_keywords(key, stopwords) for key in keywords.tolist()]
 
 # embedding
 # y
