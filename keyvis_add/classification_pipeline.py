@@ -59,6 +59,7 @@ def lemmatization(text, stopwords):
         texts_out.append(temp)
     return " ".join(texts_out)
 
+
 def preprocess_keywords(text, sep=";", merge_char=";"):
     """https://spacy.io/api/annotation"""
     texts_out = []
@@ -71,15 +72,16 @@ def preprocess_keywords(text, sep=";", merge_char=";"):
     for keyword in cleared.split("."):
         doc = nlp(keyword)
         temp = " ".join((token.lemma_ for token in doc if
-                            len(token.lemma_) > 1 and
-                            not token.lemma_ == "-PRON-" and
-                            str(token) != "."))
-        if len(temp) > 0 :
-            texts_out.append(temp)
+                         len(token.lemma_) > 1 and
+                         not token.lemma_ == "-PRON-" and
+                         str(token) != "."))
+        if len(temp) > 0:
+            texts_out.append(temp.lower())
 
     # Make sure each keyword is unique
     texts_out = list(set(texts_out))
     return merge_char.join(texts_out)
+
 
 def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
     """https://spacy.io/api/annotation"""
@@ -396,7 +398,8 @@ old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
 
 # Abstracts
 ab = [preprocess_text(a, stop_words, remove_num=False) for a in abstracts]
-old_ab = [preprocess_text(a, stop_words, remove_num=False) for a in old_abstracts]
+old_ab = [preprocess_text(a, stop_words, remove_num=False)
+          for a in old_abstracts]
 
 abstract_tfidf = TfidfVectorizer(max_df=0.8).fit(ab)
 abstract_tfidf.fit(old_ab)
@@ -473,7 +476,8 @@ for index, row in mapping.iterrows():
     cleared = preprocess_keywords(keyword)
     clear_label = re.sub(r"[ ]+", " ", label.replace("-", " "))
 
-    fixed_label = "".join([word.capitalize() for word in clear_label.split(" ")])
+    fixed_label = "".join([word.capitalize()
+                           for word in clear_label.split(" ")])
 
     mapping.set_value(index, 'AuthorKeyword', cleared)
     mapping.set_value(index, 'ExpertKeyword', fixed_label)
@@ -500,12 +504,36 @@ tool_data.to_csv("tool_data.csv", index=False)
 mapping_data.to_csv("mapping.csv", index=False)
 label_data.to_csv("labels.csv", index=False)
 
-subset = manual_data.iloc[:25]
+subset = manual_data.iloc[:35]
+subset.to_csv("subset.csv", index=False)
 
 subset_keywords = []
 
 for index, row in subset.iterrows():
+    keys = preprocess_keywords(row["Keywords"])
 
+    for word in keys.split(";"):
+        subset_keywords.append(word)
+
+subset_keywords = list(set(subset_keywords))
+
+new_mappings = pd.DataFrame(subset_keywords)
+new_mappings["1"] = ""
+new_mappings.columns = ["Keyword", "Label"]
+
+for index, row in new_mappings.iterrows():
+    result = mapping.loc[mapping['AuthorKeyword'] == row["Keyword"]]["ExpertKeyword"]
+
+    if len(result) > 0:
+        word = result.iloc[0]
+    else:
+        word = ""
+
+    new_mappings.at[index, "Label"] = word
+
+sum(new_mappings["Label"] != "")
+
+new_mappings.to_csv("new_mapping.csv", index=False)
 
 # Automatic performance measurement
 
