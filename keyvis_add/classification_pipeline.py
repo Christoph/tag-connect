@@ -474,10 +474,11 @@ for index, row in mapping.iterrows():
     label = row["ExpertKeyword"]
 
     cleared = preprocess_keywords(keyword)
-    clear_label = re.sub(r"[ ]+", " ", label.replace("-", " "))
+    clear_label = re.sub(r"[ ]+", " ", label.replace("-", " ").replace("/", " ").replace("+", " ").replace("&", " ").replace(",", " "))
 
-    fixed_label = "".join([word.capitalize()
-                           for word in clear_label.split(" ")])
+    # fixed_label = "".join([word.capitalize()
+                        #    for word in clear_label.split(" ")])
+    fixed_label = clear_label.replace(" ", "")
 
     mapping.set_value(index, 'AuthorKeyword', cleared)
     mapping.set_value(index, 'ExpertKeyword', fixed_label)
@@ -525,13 +526,14 @@ for index, row in new_mappings.iterrows():
     result = mapping.loc[mapping['AuthorKeyword'] == row["Keyword"]]["ExpertKeyword"]
 
     if len(result) > 0:
-        word = result.iloc[0]
+        word = result.iloc[0].replace(",", "")
     else:
         word = ""
 
     new_mappings.at[index, "Label"] = word
 
 sum(new_mappings["Label"] != "")
+new_mappings = new_mappings[new_mappings["Label"] == ""]
 
 new_mappings.to_csv("new_mapping.csv", index=False)
 
