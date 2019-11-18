@@ -84,9 +84,9 @@ def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
     """https://spacy.io/api/annotation"""
     texts_out = []
     # replace non characers with space
-    regexr = re.sub(r"[^a-zA-Z0-9.!? ]*", " ", text)
+    regexr = re.sub(r"[^a-zA-Z0-9.!? ]+", " ", text)
     # merge multiple spaces to a single one
-    cleared = re.sub(r"[ ]*", " ", regexr)
+    cleared = re.sub(r"[ ]+", " ", regexr)
 
     for doc in nlp(cleared).sents:
         if(remove_num):
@@ -397,7 +397,7 @@ old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
 ab = [preprocess_text(a, stop_words, remove_num=False) for a in abstracts]
 old_ab = [preprocess_text(a, stop_words, remove_num=False) for a in old_abstracts]
 
-abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(ab)
+abstract_tfidf = TfidfVectorizer(max_df=0.8).fit(ab)
 abstract_tfidf.fit(old_ab)
 
 abstract_vecs = abstract_tfidf.transform(ab)
@@ -432,7 +432,6 @@ abstract_svd_vecs = abstract_svd.transform(abstract_vecs)
 old_abstract_svd_vecs = abstract_svd.transform(old_abstract_vecs)
 
 # Structuring and saving data
-meta = meta.drop(["level_0", "index"], axis=1)
 meta["Keywords_Processed"] = single
 
 meta["Keyword_Vector"] = ""
@@ -465,7 +464,6 @@ old_data.to_json("old_data.json", orient="index")
 
 # Normalize all keywords
 mapping = pd.read_json("datasets/mapping.json", orient="index")
-classes = pd.read_json("datasets/classes.json")
 
 for index, row in mapping.iterrows():
     keyword = row["AuthorKeyword"]
@@ -484,7 +482,7 @@ mapping.to_json("mapping.json", orient="index")
 # Export study data
 meta = pd.read_json("datasets/new_data.json", orient="index")
 mapping = pd.read_json("datasets/mapping.json", orient="index")
-classes = pd.read_json("datasets/classes.json")
+classes = pd.read_json("datasets/classes.json", orient="index")
 
 study_data = meta.drop(["Abstract_Vector", "Keyword_Vector"], axis=1)
 study_data["Labels"] = ""
@@ -493,7 +491,7 @@ manual_data, tool_data = train_test_split(study_data, test_size=0.5)
 mapping_data = mapping.drop(
     ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
 mapping_data.columns = ["Keyword", "Label"]
-label_data = classes.drop([0])
+label_data = classes.drop(["Vector"], axis=1)
 label_data.columns = ["Label"]
 
 manual_data.to_csv("manual_data.csv", index=False)
