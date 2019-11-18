@@ -74,7 +74,8 @@ def preprocess_keywords(text, sep=";", merge_char=";"):
                             len(token.lemma_) > 1 and
                             not token.lemma_ == "-PRON-" and
                             str(token) != "."))
-        texts_out.append(temp)
+        if len(temp) > 0 :
+            texts_out.append(temp)
 
     # Make sure each keyword is unique
     texts_out = list(set(texts_out))
@@ -498,6 +499,13 @@ manual_data.to_csv("manual_data.csv", index=False)
 tool_data.to_csv("tool_data.csv", index=False)
 mapping_data.to_csv("mapping.csv", index=False)
 label_data.to_csv("labels.csv", index=False)
+
+subset = manual_data.iloc[:25]
+
+subset_keywords = []
+
+for index, row in subset.iterrows():
+
 
 # Automatic performance measurement
 
