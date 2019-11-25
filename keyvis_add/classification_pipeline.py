@@ -2,128 +2,6 @@ import sys
 from os import path
 from importlib import reload
 
-import re
-import pandas as pd
-import numpy as np
-# from textblob import TextBlob
-from sklearn.decomposition import NMF, LatentDirichletAllocation
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from scipy.spatial.distance import pdist
-from sklearn.preprocessing import MultiLabelBinarizer
-from nltk.corpus import stopwords
-import spacy
-from sklearn.manifold import TSNE, MDS
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.model_selection import train_test_split
-
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
-from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
-from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
-from sklearn.svm import SVC
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.metrics import classification_report
-from sklearn.multioutput import ClassifierChain
-from sklearn.neural_network import MLPClassifier
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.naive_bayes import MultinomialNB, GaussianNB
-from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-# import RMDL
-
-nlp = spacy.load('en', disable=['ner'])
-stop_words = stopwords.words('english')
-
-# Add general functions to the project
-sys.path.append(path.abspath('../methods'))
-
-# import embedding
-# import vis
-
-
-# Helper functions
-def lemmatization(text, stopwords):
-    """https://spacy.io/api/annotation"""
-    texts_out = []
-    regexr = text.replace(";", " ")
-    for sent in nlp(regexr).sents:
-        temp = " ".join((token.lemma_ for token in sent if
-                         token.lemma_ not in stop_words and
-                         len(token.lemma_) > 1 and
-                         not token.lemma_ == "-PRON-"))
-        texts_out.append(temp)
-    return " ".join(texts_out)
-
-
-def preprocess_keywords(text, sep=";", merge_char=";"):
-    """https://spacy.io/api/annotation"""
-    texts_out = []
-    # replace non characers with space
-    regexr = re.sub(r"[^a-zA-Z0-9. ]+", " ", text.replace(sep, "."))
-    # merge multiple spaces to a single one
-    cleared = re.sub(r"[[ ]+", " ", regexr)
-
-    # for doc in nlp(cleared).sents:
-    for keyword in cleared.split("."):
-        doc = nlp(keyword)
-        temp = " ".join((token.lemma_ for token in doc if
-                         len(token.lemma_) > 1 and
-                         not token.lemma_ == "-PRON-" and
-                         str(token) != "."))
-        if len(temp) > 0:
-            texts_out.append(temp.lower())
-
-    # Make sure each keyword is unique
-    texts_out = list(set(texts_out))
-    return merge_char.join(texts_out)
-
-
-def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
-    """https://spacy.io/api/annotation"""
-    texts_out = []
-    # replace non characers with space
-    regexr = re.sub(r"[^a-zA-Z0-9.!? ]+", " ", text)
-    # merge multiple spaces to a single one
-    cleared = re.sub(r"[ ]+", " ", regexr)
-
-    for doc in nlp(cleared).sents:
-        if(remove_num):
-            temp = " ".join((token.lemma_ for token in doc if
-                             not token.like_num and
-                             not token.like_url and
-                             not token.like_email and
-                             token.lemma_ not in stop_words and
-                             len(token.lemma_) > 1 and
-                             not token.lemma_ == "-PRON-"))
-        else:
-            temp = " ".join((token.lemma_ for token in doc if
-                             not token.like_url and
-                             not token.like_email and
-                             token.lemma_ not in stop_words and
-                             len(token.lemma_) > 1 and
-                             not token.lemma_ == "-PRON-"))
-        texts_out.append(temp)
-
-    return merge_char.join(texts_out)
-
-
-def get_top_words(model, tfidf, n_top_words):
-    out = []
-    feature_names = tfidf.get_feature_names()
-    idf = tfidf.idf_
-    vocab = tfidf.vocabulary_
-
-    for topic_idx, topic in enumerate(model.components_):
-        words = [(feature_names[i], idf[vocab[feature_names[i]]])
-                 for i in topic.argsort()[:-n_top_words - 1:-1]]
-        out.append(words)
-    return out
-
 # DATA Loading
 # raw = np.load("../datasets/full.pkl")
 # raw = raw.reset_index(drop=True)
@@ -345,6 +223,9 @@ def get_top_words(model, tfidf, n_top_words):
 # y = np.array([enc.transform([x.split(";")])[0] for x in meta["Clusters"]])
 
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
+
+
+
 # New data preparation
 # Prepare dimensions
 old_data = pd.read_json("datasets/meta.json", orient="index")
@@ -356,6 +237,10 @@ meta = pd.read_json("datasets/new_data.json", orient="index")
 abstracts = list(meta["Abstract"])
 keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
 
+manual_data = pd.read_excel("datasets/manual_data.xlsx", orient="index", header=1)
+manual_abstracts = list(manual_data["Abstract"])
+manual_keywords = ["" if key == None else key for key in list(list(manual_data["Keywords"]))]
+
 # Create vectors
 # Keywords
 single = [preprocess_keywords(key) for key in keywords]
@@ -365,8 +250,13 @@ old_single = [preprocess_keywords(key)
               for key in old_keywords]
 single_tfidf.fit(old_single)
 
+manual_single = [preprocess_keywords(key)
+              for key in manual_keywords]
+single_tfidf.fit(manual_single)
+
 single_vecs = single_tfidf.transform(single)
 old_single_vecs = single_tfidf.transform(old_single)
+manual_single_vecs = single_tfidf.transform(manual_single)
 
 dim = 0
 target = 0
@@ -392,20 +282,26 @@ while target < 0.3:
 
 keyword_svd = TruncatedSVD(dim).fit(single_vecs)
 keyword_svd.fit(old_single_vecs)
+keyword_svd.fit(manual_single_vecs)
 
 keyword_svd_vecs = keyword_svd.transform(single_vecs)
 old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
+manual_keyword_svd_vecs = keyword_svd.transform(manual_single_vecs)
 
 # Abstracts
 ab = [preprocess_text(a, stop_words, remove_num=False) for a in abstracts]
 old_ab = [preprocess_text(a, stop_words, remove_num=False)
           for a in old_abstracts]
+manual_ab = [preprocess_text(a, stop_words, remove_num=False)
+          for a in manual_abstracts]
 
 abstract_tfidf = TfidfVectorizer(max_df=0.8).fit(ab)
 abstract_tfidf.fit(old_ab)
+abstract_tfidf.fit(manual_ab)
 
 abstract_vecs = abstract_tfidf.transform(ab)
 old_abstract_vecs = abstract_tfidf.transform(old_ab)
+manual_abstract_vecs = abstract_tfidf.transform(manual_ab)
 
 dim = 0
 target = 0
@@ -431,9 +327,11 @@ while target < 0.3:
 
 abstract_svd = TruncatedSVD(dim).fit(abstract_vecs)
 abstract_svd.fit(old_abstract_vecs)
+abstract_svd.fit(manual_abstract_vecs)
 
 abstract_svd_vecs = abstract_svd.transform(abstract_vecs)
 old_abstract_svd_vecs = abstract_svd.transform(old_abstract_vecs)
+manual_abstract_svd_vecs = abstract_svd.transform(manual_abstract_vecs)
 
 # Structuring and saving data
 meta["Keywords_Processed"] = single
@@ -465,6 +363,22 @@ for i in old_data.index:
         pd.Series(old_abstract_svd_vecs[i]))
 
 old_data.to_json("old_data.json", orient="index")
+
+manual_data = manual_data.drop(["index"], axis=1)
+manual_data["Keywords_Processed"] = manual_single
+
+manual_data["Keyword_Vector"] = ""
+manual_data['Keyword_Vector'] = manual_data['Keyword_Vector'].astype(object)
+
+manual_data["Abstract_Vector"] = ""
+manual_data['Abstract_Vector'] = manual_data['Abstract_Vector'].astype(object)
+
+for i in manual_data.index:
+    manual_data.at[i, "Keyword_Vector"] = list(pd.Series(manual_keyword_svd_vecs[i]))
+    manual_data.at[i, "Abstract_Vector"] = list(
+        pd.Series(manual_abstract_svd_vecs[i]))
+
+manual_data.to_json("manual_data.json", orient="index")
 
 # Normalize all keywords
 mapping = pd.read_json("datasets/mapping.json", orient="index")
