@@ -2,6 +2,129 @@ import sys
 from os import path
 from importlib import reload
 
+import re
+import pandas as pd
+import numpy as np
+# from textblob import TextBlob
+from sklearn.decomposition import NMF, LatentDirichletAllocation
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from scipy.spatial.distance import pdist
+from sklearn.preprocessing import MultiLabelBinarizer
+from nltk.corpus import stopwords
+import spacy
+from sklearn.manifold import TSNE, MDS
+from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn.model_selection import train_test_split
+
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.metrics import classification_report
+from sklearn.multioutput import ClassifierChain
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.naive_bayes import MultinomialNB, GaussianNB
+from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+# import RMDL
+
+nlp = spacy.load('en', disable=['ner'])
+stop_words = stopwords.words('english')
+
+# Add general functions to the project
+sys.path.append(path.abspath('../methods'))
+
+# import embedding
+# import vis
+
+
+# Helper functions
+def lemmatization(text, stopwords):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    regexr = text.replace(";", " ")
+    for sent in nlp(regexr).sents:
+        temp = " ".join((token.lemma_ for token in sent if
+                         token.lemma_ not in stop_words and
+                         len(token.lemma_) > 1 and
+                         not token.lemma_ == "-PRON-"))
+        texts_out.append(temp)
+    return " ".join(texts_out)
+
+
+def preprocess_keywords(text, sep=";", merge_char=";"):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    # replace non characers with space
+    regexr = re.sub(r"[^a-zA-Z0-9. ]+", " ", text.replace(sep, "."))
+    # merge multiple spaces to a single one
+    cleared = re.sub(r"[[ ]+", " ", regexr)
+
+    # for doc in nlp(cleared).sents:
+    for keyword in cleared.split("."):
+        doc = nlp(keyword)
+        temp = " ".join((token.lemma_ for token in doc if
+                         len(token.lemma_) > 1 and
+                         not token.lemma_ == "-PRON-" and
+                         str(token) != "."))
+        if len(temp) > 0:
+            texts_out.append(temp.lower())
+
+    # Make sure each keyword is unique
+    texts_out = list(set(texts_out))
+    return merge_char.join(texts_out)
+
+
+def preprocess_text(text, stopwords, remove_num=True, merge_char=" "):
+    """https://spacy.io/api/annotation"""
+    texts_out = []
+    # replace non characers with space
+    regexr = re.sub(r"[^a-zA-Z0-9.!? ]+", " ", text)
+    # merge multiple spaces to a single one
+    cleared = re.sub(r"[ ]+", " ", regexr)
+
+    for doc in nlp(cleared).sents:
+        if(remove_num):
+            temp = " ".join((token.lemma_ for token in doc if
+                             not token.like_num and
+                             not token.like_url and
+                             not token.like_email and
+                             token.lemma_ not in stop_words and
+                             len(token.lemma_) > 1 and
+                             not token.lemma_ == "-PRON-"))
+        else:
+            temp = " ".join((token.lemma_ for token in doc if
+                             not token.like_url and
+                             not token.like_email and
+                             token.lemma_ not in stop_words and
+                             len(token.lemma_) > 1 and
+                             not token.lemma_ == "-PRON-"))
+        texts_out.append(temp)
+
+    return merge_char.join(texts_out)
+
+
+def get_top_words(model, tfidf, n_top_words):
+    out = []
+    feature_names = tfidf.get_feature_names()
+    idf = tfidf.idf_
+    vocab = tfidf.vocabulary_
+
+    for topic_idx, topic in enumerate(model.components_):
+        words = [(feature_names[i], idf[vocab[feature_names[i]]])
+                 for i in topic.argsort()[:-n_top_words - 1:-1]]
+        out.append(words)
+    return out
+
+
 # DATA Loading
 # raw = np.load("../datasets/full.pkl")
 # raw = raw.reset_index(drop=True)
@@ -224,8 +347,6 @@ from importlib import reload
 
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
 
-
-
 # New data preparation
 # Prepare dimensions
 old_data = pd.read_json("datasets/meta.json", orient="index")
@@ -237,147 +358,133 @@ meta = pd.read_json("datasets/new_data.json", orient="index")
 abstracts = list(meta["Abstract"])
 keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
 
-manual_data = pd.read_excel("datasets/manual_data.xlsx", orient="index", header=1)
+manual_data = pd.read_excel(
+    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
 manual_abstracts = list(manual_data["Abstract"])
-manual_keywords = ["" if key == None else key for key in list(list(manual_data["Keywords"]))]
+manual_keywords = ["" if key == None else key for key in list(
+    list(manual_data["Keywords"]))]
 
-# Create vectors
-# Keywords
-single = [preprocess_keywords(key) for key in keywords]
-single_tfidf = TfidfVectorizer(stop_words=stop_words).fit(single)
+datasets = [
+    pd.read_json("datasets/meta.json", orient="index"),
+    pd.read_excel(
+    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50],
+    # pd.read_json("datasets/new_data.json", orient="index")
+]
+dataset_names = [
+    "old_data",  "new_data"
+]
 
-old_single = [preprocess_keywords(key)
-              for key in old_keywords]
-single_tfidf.fit(old_single)
+keywords = []
+keyword_tfidf_vecs = []
+keyword_svd_vecs = []
 
-manual_single = [preprocess_keywords(key)
-              for key in manual_keywords]
-single_tfidf.fit(manual_single)
+abstracts = []
+abstract_tfidf_vecs = []
+abstract_svd_vecs = []
 
-single_vecs = single_tfidf.transform(single)
-old_single_vecs = single_tfidf.transform(old_single)
-manual_single_vecs = single_tfidf.transform(manual_single)
+def preprocessData(datasets):
+    ### KEYWORDS ###
+    # Preprocess keywords
+    for data in datasets:
+        keywords.append(
+            ["" if key == None else preprocess_keywords(key) for key in list(list(data["Keywords"]))])
 
-dim = 0
-target = 0
+    # Vectorize keywords
+    keyword_tfidf = TfidfVectorizer(stop_words=stop_words)
 
-while target < 0.3:
-    # Increase dimensionality
-    dim = dim + 2
+    for data in keywords:
+        keyword_tfidf.fit(data)
 
-    # Fit svd
-    keyword_svd = TruncatedSVD(dim).fit(single_vecs)
-    keyword_svd.fit(old_single_vecs)
+    # Transform keywords
+    for data in keywords:
+        keyword_tfidf_vecs.append(keyword_tfidf.transform(data))
 
-    # Get explained variance
-    variance = keyword_svd.explained_variance_ratio_.sum()
+    # Create svd transformer
+    keyword_svd = TruncatedSVD(select_svd_dim(keyword_tfidf_vecs))
 
-    if(variance >= target):
-        target = variance
-    else:
-        changing = False
+    # Fit the SVD
+    for data in keyword_tfidf_vecs:
+        keyword_svd.fit(data)
 
-    if(dim > 200):
-        changing = False
+    # Transform TFIDF -> SVD
+    for data in keyword_tfidf_vecs:
+        keyword_svd_vecs.append(keyword_svd.transform(data))
 
-keyword_svd = TruncatedSVD(dim).fit(single_vecs)
-keyword_svd.fit(old_single_vecs)
-keyword_svd.fit(manual_single_vecs)
+    ### ABSTRACTS ###
+    # Preprocess abstracts
+    for data in datasets:
+        abstracts.append(
+            ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(dataset["Abstract"])])
 
-keyword_svd_vecs = keyword_svd.transform(single_vecs)
-old_keyword_svd_vecs = keyword_svd.transform(old_single_vecs)
-manual_keyword_svd_vecs = keyword_svd.transform(manual_single_vecs)
+    # Vectorize keywords
+    abstract_tfidf = TfidfVectorizer(max_df=0.7)
 
-# Abstracts
-ab = [preprocess_text(a, stop_words, remove_num=False) for a in abstracts]
-old_ab = [preprocess_text(a, stop_words, remove_num=False)
-          for a in old_abstracts]
-manual_ab = [preprocess_text(a, stop_words, remove_num=False)
-          for a in manual_abstracts]
+    for data in abstracts:
+        abstract_tfidf.fit(data)
 
-abstract_tfidf = TfidfVectorizer(max_df=0.8).fit(ab)
-abstract_tfidf.fit(old_ab)
-abstract_tfidf.fit(manual_ab)
+    # Transform keywords
+    for data in abstracts:
+        abstract_tfidf_vecs.append(abstract_tfidf.transform(data))
 
-abstract_vecs = abstract_tfidf.transform(ab)
-old_abstract_vecs = abstract_tfidf.transform(old_ab)
-manual_abstract_vecs = abstract_tfidf.transform(manual_ab)
+    # Create svd transformer
+    abstract_svd = TruncatedSVD(select_svd_dim(abstract_tfidf_vecs))
 
-dim = 0
-target = 0
+    # Fit the SVD
+    for data in abstract_tfidf_vecs:
+        abstract_svd.fit(data)
 
-while target < 0.3:
-    # Increase dimensionality
-    dim = dim + 2
+    # Transform TFIDF -> SVD
+    for data in abstract_tfidf_vecs:
+        abstract_svd_vecs.append(abstract_svd.transform(data))
 
-    # Fit svd
-    abstract_svd = TruncatedSVD(dim).fit(abstract_vecs)
-    abstract_svd.fit(old_abstract_vecs)
+    # Save data
+    for index, data in enumerate(datasets):
+        # Set processed keywords
+        data["Keywords_Processed"] = keywords[index]
 
-    # Get explained variance
-    variance = abstract_svd.explained_variance_ratio_.sum()
+        data["Keyword_Vector"] = ""
+        data['Keyword_Vector'] = data['Keyword_Vector'].astype(object)
 
-    if(variance >= target):
-        target = variance
-    else:
-        changing = False
+        data["Abstract_Vector"] = ""
+        data['Abstract_Vector'] = data['Abstract_Vector'].astype(object)
 
-    if(dim > 200):
-        changing = False
+        for i in data.index:
+            data.at[i, "Keyword_Vector"] = list(
+                pd.Series(keyword_svd_vecs[index][i]))
+            data.at[i, "Abstract_Vector"] = list(
+                pd.Series(abstract_svd_vecs[index][i]))
 
-abstract_svd = TruncatedSVD(dim).fit(abstract_vecs)
-abstract_svd.fit(old_abstract_vecs)
-abstract_svd.fit(manual_abstract_vecs)
 
-abstract_svd_vecs = abstract_svd.transform(abstract_vecs)
-old_abstract_svd_vecs = abstract_svd.transform(old_abstract_vecs)
-manual_abstract_svd_vecs = abstract_svd.transform(manual_abstract_vecs)
+def select_svd_dim(vecs, explained_variance_threshold = 0.3, step_size = 2, max_dim = 200):
+    dim=0
+    target=0
 
-# Structuring and saving data
-meta["Keywords_Processed"] = single
+    while target < explained_variance_threshold:
+        # Increase dimensionality
+        dim=dim + step_size
 
-meta["Keyword_Vector"] = ""
-meta['Keyword_Vector'] = meta['Keyword_Vector'].astype(object)
+        # Fit svd
+        temp_svd=TruncatedSVD(dim)
 
-meta["Abstract_Vector"] = ""
-meta['Abstract_Vector'] = meta['Abstract_Vector'].astype(object)
+        for vec in vecs:
+            temp_svd.fit(vec)
 
-for i in meta.index:
-    meta.at[i, "Keyword_Vector"] = list(pd.Series(keyword_svd_vecs[i]))
-    meta.at[i, "Abstract_Vector"] = list(pd.Series(abstract_svd_vecs[i]))
+        # Get explained variance
+        variance=temp_svd.explained_variance_ratio_.sum()
 
+        if(variance >= target):
+            target=variance
+        else:
+            changing=False
+
+        if(dim > max_dim):
+            changing=False
+
+    return dim
+
+# Saving data
 meta.to_json("new_data.json", orient="index")
-
-old_data = old_data.drop(["type"], axis=1)
-old_data["Keywords_Processed"] = old_single
-
-old_data["Keyword_Vector"] = ""
-old_data['Keyword_Vector'] = old_data['Keyword_Vector'].astype(object)
-
-old_data["Abstract_Vector"] = ""
-old_data['Abstract_Vector'] = old_data['Abstract_Vector'].astype(object)
-
-for i in old_data.index:
-    old_data.at[i, "Keyword_Vector"] = list(pd.Series(old_keyword_svd_vecs[i]))
-    old_data.at[i, "Abstract_Vector"] = list(
-        pd.Series(old_abstract_svd_vecs[i]))
-
 old_data.to_json("old_data.json", orient="index")
-
-manual_data = manual_data.drop(["index"], axis=1)
-manual_data["Keywords_Processed"] = manual_single
-
-manual_data["Keyword_Vector"] = ""
-manual_data['Keyword_Vector'] = manual_data['Keyword_Vector'].astype(object)
-
-manual_data["Abstract_Vector"] = ""
-manual_data['Abstract_Vector'] = manual_data['Abstract_Vector'].astype(object)
-
-for i in manual_data.index:
-    manual_data.at[i, "Keyword_Vector"] = list(pd.Series(manual_keyword_svd_vecs[i]))
-    manual_data.at[i, "Abstract_Vector"] = list(
-        pd.Series(manual_abstract_svd_vecs[i]))
-
 manual_data.to_json("manual_data.json", orient="index")
 
 # Normalize all keywords
