@@ -414,7 +414,7 @@ def preprocessData(datasets):
     # Preprocess abstracts
     for data in datasets:
         abstracts.append(
-            ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(dataset["Abstract"])])
+            ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(data["Abstract"])])
 
     # Vectorize keywords
     abstract_tfidf = TfidfVectorizer(max_df=0.7)
