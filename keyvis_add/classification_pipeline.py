@@ -348,30 +348,12 @@ def get_top_words(model, tfidf, n_top_words):
 # pd.DataFrame(y).to_json("all_labels.json", orient="values")
 
 # New data preparation
-# Prepare dimensions
-old_data = pd.read_json("datasets/meta.json", orient="index")
-old_abstracts = list(old_data["Abstract"])
-old_keywords = ["" if key == None else key for key in list(
-    list(old_data["Keywords"]))]
-
-meta = pd.read_json("datasets/new_data.json", orient="index")
-abstracts = list(meta["Abstract"])
-keywords = ["" if key == None else key for key in list(list(meta["Keywords"]))]
-
-manual_data = pd.read_excel(
-    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
-manual_abstracts = list(manual_data["Abstract"])
-manual_keywords = ["" if key == None else key for key in list(
-    list(manual_data["Keywords"]))]
-
-datasets = [
-    pd.read_json("datasets/meta.json", orient="index"),
-    pd.read_excel(
-    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50],
+old_data = pd.read_json("datasets/old_data.json", orient="index")
+new_data = pd.read_excel( "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
     # pd.read_json("datasets/new_data.json", orient="index")
-]
-dataset_names = [
-    "old_data",  "new_data"
+datasets = [
+    old_data,
+    new_data
 ]
 
 keywords = []
@@ -483,9 +465,8 @@ def select_svd_dim(vecs, explained_variance_threshold = 0.3, step_size = 2, max_
     return dim
 
 # Saving data
-meta.to_json("new_data.json", orient="index")
+new_data.to_json("new_data.json", orient="index")
 old_data.to_json("old_data.json", orient="index")
-manual_data.to_json("manual_data.json", orient="index")
 
 # Normalize all keywords
 mapping = pd.read_json("datasets/mapping.json", orient="index")
@@ -565,7 +546,9 @@ new_mappings.to_csv("new_mapping.csv", index=False)
 # Embedding -
 
 # data
-meta = pd.read_json("datasets/meta.json", orient="index").sort_index()
+meta = pd.read_json("datasets/old_data.json", orient="index").sort_index()
+new_data = pd.read_excel(
+    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
 
 # Remove leading and trailing ;
 meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
@@ -574,18 +557,19 @@ meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
 test_index = meta[meta["type"] == "new"].index  # len = 197
 train_index = meta.drop(test_index).index  # len = 1280
 
-# fulltexts
-fulltexts = pd.read_json("datasets/fulltext_lemma.json",
-                         orient="index").sort_index()
-
 # abstracts
-abstracts = list(meta["Abstract"])
+abstracts = ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(meta["Abstract"])]
+
+new_abstracts = ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(new_data["Abstract"])]
 
 # keywords
-keywords = meta["Keywords"]
-multi = [preprocess_keywords(key.replace(" ", "_"), stopwords)
-         for key in keywords.tolist()]
-single = [preprocess_keywords(key, stopwords) for key in keywords.tolist()]
+keywords = meta["Keywords_Processed"]
+multi = [key.replace(" ", "_") for key in keywords.tolist()]
+single = [key for key in keywords.tolist()]
+
+new_keywords = new_data["Keywords_Processed"]
+new_multi = [key.replace(" ","_") for key in new_keywords.tolist()]
+new_single = [key for key in new_keywords.tolist()]
 
 # embedding
 # y
@@ -601,109 +585,43 @@ y_test = np.vstack(meta.iloc[test_index].apply(
 classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
 
 # x
-# fulltext
-fulltext_tfidf = TfidfVectorizer(max_df=0.5).fit(fulltexts[0].tolist())
-fulltext_vecs = fulltext_tfidf.transform(fulltexts[0].tolist())
+# TFIDF
+abstract_tfidf = TfidfVectorizer(max_df=0.8)
+abstract_tfidf.fit(abstracts)
+abstract_tfidf.fit(new_abstracts)
 
-x_train_full = fulltext_vecs[train_index]
-x_test_full = fulltext_vecs[test_index]
+abstract_vecs = abstract_tfidf.transform(abstracts)
+new_abstract_vecs = abstract_tfidf.transform(new_abstracts)
 
-abstract_tfidf = TfidfVectorizer(max_df=0.5).fit(abstracts)
-abstract_vecs = fulltext_tfidf.transform(abstracts)
+abstract_tfidf_60 = TfidfVectorizer(max_df=0.6)
+abstract_tfidf_60.fit(abstracts)
+abstract_tfidf_60.fit(new_abstracts)
 
-x_train_abstract = abstract_vecs[train_index]
-x_test_abstract = abstract_vecs[test_index]
+abstract_60_vecs = abstract_tfidf_60.transform(abstracts)
+new_abstract_60_vecs = abstract_tfidf_60.transform(new_abstracts)
 
-nmf = NMF(10)
-vecs = nmf.fit_transform(fulltext_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
+single_keyword_tfidf = TfidfVectorizer()
+single_keyword_tfidf.fit(single)
+single_keyword_tfidf.fit(new_single)
 
-x_train_nmf_10 = vecs[train_index]
-x_test_nmf_10 = vecs[test_index]
+single_keyword_vecs = single_keyword_tfidf.transform(single)
+new_single_keyword_vecs = single_keyword_tfidf.transform(new_single)
 
-nmf = NMF(15)
-vecs = nmf.fit_transform(fulltext_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
+multi_keyword_tfidf = TfidfVectorizer()
+multi_keyword_tfidf.fit(multi)
+multi_keyword_tfidf.fit(new_multi)
 
-x_train_nmf_15 = vecs[train_index]
-x_test_nmf_15 = vecs[test_index]
-
-nmf = NMF(20)
-vecs = nmf.fit_transform(fulltext_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
-
-x_train_nmf_20 = vecs[train_index]
-x_test_nmf_20 = vecs[test_index]
-
-nmf = NMF(10)
-vecs = nmf.fit_transform(abstract_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
-
-x_train_abstract_nmf_10 = vecs[train_index]
-x_test_abstract_nmf_10 = vecs[test_index]
-
-nmf = NMF(15)
-vecs = nmf.fit_transform(abstract_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
-
-x_train_abstract_nmf_15 = vecs[train_index]
-x_test_abstract_nmf_15 = vecs[test_index]
-
-nmf = NMF(20)
-vecs = nmf.fit_transform(abstract_vecs)
-vecs = np.asarray(vecs, dtype=np.object)
-
-x_train_abstract_nmf_20 = vecs[train_index]
-x_test_abstract_nmf_20 = vecs[test_index]
-
-svd = TruncatedSVD(50).fit_transform(fulltext_vecs)
-x_train_svd_50 = svd[train_index]
-x_test_svd_50 = svd[test_index]
-
-svd = TruncatedSVD(20).fit_transform(fulltext_vecs)
-x_train_svd_20 = svd[train_index]
-x_test_svd_20 = svd[test_index]
-
-svd = TruncatedSVD(100).fit_transform(fulltext_vecs)
-x_train_svd_100 = svd[train_index]
-x_test_svd_100 = svd[test_index]
-
-svd = TruncatedSVD(50).fit_transform(abstract_vecs)
-x_train_abstract_svd_50 = svd[train_index]
-x_test_abstract_svd_50 = svd[test_index]
-
-svd = TruncatedSVD(20).fit_transform(abstract_vecs)
-x_train_abstract_svd_20 = svd[train_index]
-x_test_abstract_svd_20 = svd[test_index]
-
-svd = TruncatedSVD(100).fit_transform(abstract_vecs)
-x_train_abstract_svd_100 = svd[train_index]
-x_test_abstract_svd_100 = svd[test_index]
-# abstract
-
-# keywords multi
-multi_tfidf = TfidfVectorizer().fit(multi)
-multi_vecs = multi_tfidf.transform(multi)
-
-x_train_multi = multi_vecs[train_index]
-x_test_multi = multi_vecs[test_index]
+multi_keyword_vecs = multi_keyword_tfidf.transform(multi)
+new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
 # keywords single
-single_tfidf = TfidfVectorizer().fit(single)
-single_vecs = single_tfidf.transform(single)
+# single_tfidf = TfidfVectorizer().fit(single)
+# single_vecs = single_tfidf.transform(single)
 
-x_train_single = single_vecs[train_index]
-x_test_single = single_vecs[test_index]
+# x_train_single = single_vecs[train_index]
+# x_test_single = single_vecs[test_index]
 
 datasets = [
-    # ["fulltext tfidf",x_train_full, x_test_full],
-    ["fulltext nmf 10", x_train_nmf_10, x_test_nmf_10],
-    ["fulltext nmf 15", x_train_nmf_15, x_test_nmf_15],
-    ["fulltext nmf 20", x_train_nmf_20, x_test_nmf_20],
-    ["fulltext tfidf svd 20", x_train_svd_20, x_test_svd_20],
-    ["fulltext tfidf svd 50", x_train_svd_50, x_test_svd_50],
-    ["fulltext tfidf svd 100", x_train_svd_100, x_test_svd_100],
-    # ["abstract tfidf",x_train_abstract, x_test_abstract],
     ["abstract nmf 10", x_train_abstract_nmf_10, x_test_abstract_nmf_10],
     ["abstract nmf 15", x_train_abstract_nmf_15, x_test_abstract_nmf_15],
     ["abstract nmf 20", x_train_abstract_nmf_20, x_test_abstract_nmf_20],
