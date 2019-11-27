@@ -6,7 +6,7 @@ import re
 import pandas as pd
 import numpy as np
 # from textblob import TextBlob
-from sklearn.decomposition import NMF, LatentDirichletAllocation
+from sklearn.decomposition import NMF, LatentDirichletAllocation, FastICA
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.svm import SVC
@@ -349,8 +349,9 @@ def get_top_words(model, tfidf, n_top_words):
 
 # New data preparation
 old_data = pd.read_json("datasets/old_data.json", orient="index")
-new_data = pd.read_excel( "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
-    # pd.read_json("datasets/new_data.json", orient="index")
+new_data = pd.read_excel("datasets/manual_data.xlsx",
+                         orient="index", header=1).iloc[0:50]
+# pd.read_json("datasets/new_data.json", orient="index")
 datasets = [
     old_data,
     new_data
@@ -363,6 +364,7 @@ keyword_svd_vecs = []
 abstracts = []
 abstract_tfidf_vecs = []
 abstract_svd_vecs = []
+
 
 def preprocessData(datasets):
     ### KEYWORDS ###
@@ -437,32 +439,33 @@ def preprocessData(datasets):
                 pd.Series(abstract_svd_vecs[index][i]))
 
 
-def select_svd_dim(vecs, explained_variance_threshold = 0.3, step_size = 2, max_dim = 200):
-    dim=0
-    target=0
+def select_svd_dim(vecs, explained_variance_threshold=0.3, step_size=2, max_dim=200):
+    dim = 0
+    target = 0
 
     while target < explained_variance_threshold:
         # Increase dimensionality
-        dim=dim + step_size
+        dim = dim + step_size
 
         # Fit svd
-        temp_svd=TruncatedSVD(dim)
+        temp_svd = TruncatedSVD(dim)
 
         for vec in vecs:
             temp_svd.fit(vec)
 
         # Get explained variance
-        variance=temp_svd.explained_variance_ratio_.sum()
+        variance = temp_svd.explained_variance_ratio_.sum()
 
         if(variance >= target):
-            target=variance
+            target = variance
         else:
-            changing=False
+            changing = False
 
         if(dim > max_dim):
-            changing=False
+            changing = False
 
     return dim
+
 
 # Saving data
 new_data.to_json("new_data.json", orient="index")
@@ -476,10 +479,11 @@ for index, row in mapping.iterrows():
     label = row["ExpertKeyword"]
 
     cleared = preprocess_keywords(keyword)
-    clear_label = re.sub(r"[ ]+", " ", label.replace("-", " ").replace("/", " ").replace("+", " ").replace("&", " ").replace(",", " "))
+    clear_label = re.sub(r"[ ]+", " ", label.replace("-", " ").replace(
+        "/", " ").replace("+", " ").replace("&", " ").replace(",", " "))
 
     # fixed_label = "".join([word.capitalize()
-                        #    for word in clear_label.split(" ")])
+    #    for word in clear_label.split(" ")])
     fixed_label = clear_label.replace(" ", "")
 
     mapping.set_value(index, 'AuthorKeyword', cleared)
@@ -525,7 +529,8 @@ new_mappings["1"] = ""
 new_mappings.columns = ["Keyword", "Label"]
 
 for index, row in new_mappings.iterrows():
-    result = mapping.loc[mapping['AuthorKeyword'] == row["Keyword"]]["ExpertKeyword"]
+    result = mapping.loc[mapping['AuthorKeyword']
+                         == row["Keyword"]]["ExpertKeyword"]
 
     if len(result) > 0:
         word = result.iloc[0].replace(",", "")
@@ -553,14 +558,12 @@ new_data = pd.read_excel(
 # Remove leading and trailing ;
 meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
 
-# train/test split for classification
-test_index = meta[meta["type"] == "new"].index  # len = 197
-train_index = meta.drop(test_index).index  # len = 1280
-
 # abstracts
-abstracts = ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(meta["Abstract"])]
+abstracts = ["" if ab == None else preprocess_text(
+    ab, stop_words, remove_num=False) for ab in list(meta["Abstract"])]
 
-new_abstracts = ["" if ab == None else preprocess_text(ab, stop_words, remove_num=False) for ab in list(new_data["Abstract"])]
+new_abstracts = ["" if ab == None else preprocess_text(
+    ab, stop_words, remove_num=False) for ab in list(new_data["Abstract"])]
 
 # keywords
 keywords = meta["Keywords_Processed"]
@@ -568,18 +571,16 @@ multi = [key.replace(" ", "_") for key in keywords.tolist()]
 single = [key for key in keywords.tolist()]
 
 new_keywords = new_data["Keywords_Processed"]
-new_multi = [key.replace(" ","_") for key in new_keywords.tolist()]
+new_multi = [key.replace(" ", "_") for key in new_keywords.tolist()]
 new_single = [key for key in new_keywords.tolist()]
 
 # embedding
 # y
 enc = MultiLabelBinarizer()
 enc.fit([cluster.split(";")
-         for cluster in meta.iloc[train_index]["Clusters"].tolist()])
+         for cluster in meta["Clusters"].tolist()])
 
-y_train = np.vstack(meta.iloc[train_index].apply(
-    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
-y_test = np.vstack(meta.iloc[test_index].apply(
+y = np.vstack(meta.apply(
     lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
 
 classes = pd.DataFrame(enc.classes_, columns=["Cluster"])
@@ -614,103 +615,83 @@ multi_keyword_tfidf.fit(new_multi)
 multi_keyword_vecs = multi_keyword_tfidf.transform(multi)
 new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
-# keywords single
-# single_tfidf = TfidfVectorizer().fit(single)
-# single_vecs = single_tfidf.transform(single)
-
-# x_train_single = single_vecs[train_index]
-# x_test_single = single_vecs[test_index]
-
-datasets = [
-    ["abstract nmf 10", x_train_abstract_nmf_10, x_test_abstract_nmf_10],
-    ["abstract nmf 15", x_train_abstract_nmf_15, x_test_abstract_nmf_15],
-    ["abstract nmf 20", x_train_abstract_nmf_20, x_test_abstract_nmf_20],
-    ["abstract tfidf svd 20", x_train_abstract_svd_20, x_test_abstract_svd_20],
-    ["abstract tfidf svd 50", x_train_abstract_svd_50, x_test_abstract_svd_50],
-    ["abstract tfidf svd 100", x_train_abstract_svd_100, x_test_abstract_svd_100],
-    ["keywords multi-word", x_train_multi, x_test_multi],
-    ["keywords single-word", x_train_single, x_test_single]
-]
-
 # classification
 out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 
+datasets = [
+    ["abstract max_df=0.8", abstract_vecs],
+    ["abstract max_df=0.6", abstract_60_vecs],
+    ["single keywords", single_keyword_vecs],
+    ["multi keywords", multi_keyword_vecs],
+]
+
+dimension_reductions = [
+    ["SVD",
+     TruncatedSVD,
+     [
+         {
+             "explained_variance_threshold": 0.4,
+             "step_size": 3,
+             "max_dim": 200,
+             "n_dim": 0
+         },
+         {
+             "explained_variance_threshold": 0.6,
+             "step_size": 6,
+             "max_dim": 400,
+             "n_dim": 0
+         },
+         {
+             "explained_variance_threshold": 0.8,
+             "step_size": 9,
+             "max_dim": 600,
+             "n_dim": 0
+         },
+     ]],
+    ["NMF",
+     NMF,
+     [
+         {
+
+         }
+     ]]
+]
+
+# NMF(20, init="nndsvda").fit(abstract_vecs).reconstruction_err_
+
 classifications = [
     ["DecisionTree", DecisionTreeClassifier, [
-        {"criterion": "gini", "min_samples_leaf": 5},
-        # {"criterion": "gini", "min_samples_leaf": 10},
-        {"criterion": "entropy", "min_samples_leaf": 5},
-        # {"criterion": "entropy", "min_samples_leaf": 10},
+        {"criterion": "gini", "min_samples_split": 0.01},
+        {"criterion": "entropy", "min_samples_split": 0.01},
+        {"criterion": "gini", "min_samples_split": 0.05},
+        {"criterion": "entropy", "min_samples_split": 0.05},
     ]],
-    # ["ExtraTree", ExtraTreeClassifier, [
-    #     {"criterion": "gini", "min_samples_leaf": 5},
-    #     {"criterion": "gini", "min_samples_leaf": 10},
-    #     {"criterion": "entropy", "min_samples_leaf": 5},
-    #     {"criterion": "entropy", "min_samples_leaf": 10},
-    #     ]],
-    ["Extra Tree Ensemble", ExtraTreesClassifier, [
-        # {"n_estimators": 100, "min_samples_leaf": 5},
-        {"n_estimators": 200, "min_samples_leaf": 5},
-        # {"n_estimators": 100, "min_samples_leaf": 10},
-        {"n_estimators": 200, "min_samples_leaf": 10},
-        # {"n_estimators": 100, "min_samples_leaf": 5},
-        # {"n_estimators": 200, "min_samples_leaf": 5},
-        # {"n_estimators": 100, "min_samples_leaf": 10},
-        # {"n_estimators": 200, "min_samples_leaf": 10},
+    ["AdaBoost", AdaBoostClassifier, [
+        {"n_estimators": 300, "learning_rate": 1},
+        {"n_estimators": 300, "learning_rate": 0.5},
     ]],
-    ["kneighbors", KNeighborsClassifier, [
-        {"n_neighbors": 5},
-        {"n_neighbors": 10},
-        {"n_neighbors": 15},
+    ["GradientBoostingClassifier", GradientBoostingClassifier, [
+        {"n_estimators": 300}
+    ]],
+    ["SVM", SVC, [
+        {"probability": "True"},
     ]],
     ["Random Forest", RandomForestClassifier, [
-        # {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 5},
-        # {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 5},
-        {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 5},
-        # {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 5},
-        # {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 5},
-        {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 5},
-        # {"n_estimators": 100, "criterion": "gini", "min_samples_leaf": 10},
-        # {"n_estimators": 200, "criterion": "gini", "min_samples_leaf": 10},
-        {"n_estimators": 300, "criterion": "gini", "min_samples_leaf": 10},
-        # {"n_estimators": 100, "criterion": "entropy", "min_samples_leaf": 10},
-        # {"n_estimators": 200, "criterion": "entropy", "min_samples_leaf": 10},
-        {"n_estimators": 300, "criterion": "entropy", "min_samples_leaf": 10},
+        {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.01},
+        {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.01},
+        {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
+        {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
     ]],
     ["MLP", MLPClassifier, [
-        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "invscaling"},
-        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "invscaling"},
-        # {"hidden_layer_sizes": 50, "activation": "relu", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": 50, "activation": "tanh", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "constant"},
         {"hidden_layer_sizes": 100, "activation": "relu",
             "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 100, "activation": "tanh",
-            "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": 100, "activation": "tanh", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "invscaling"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "invscaling"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "relu", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": (100, 100), "activation": "tanh", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": (100, 50), "activation": "relu", "learning_rate": "constant"},
-        # {"hidden_layer_sizes": (100, 50), "activation": "tanh", "learning_rate": "constant"},
-        {"hidden_layer_sizes": (100, 50), "activation": "relu",
-         "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 50), "activation": "tanh",
-         "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": (100, 50), "activation": "relu",
+        {"hidden_layer_sizes": (50, 50), "activation": "relu",
          "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 50), "activation": "tanh",
+        {"hidden_layer_sizes": (100, 100), "activation": "relu",
          "learning_rate": "adaptive"},
     ]]
 ]
-out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
 
 for data_id, dataset in enumerate(datasets):
     name = dataset[0]
