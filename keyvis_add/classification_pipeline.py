@@ -14,7 +14,7 @@ from nltk.corpus import stopwords
 import spacy
 from sklearn.manifold import TSNE, MDS
 from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, ShuffleSplit
 
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
@@ -23,7 +23,7 @@ from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientB
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report, precision_recall_fscore_support
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
 from sklearn.multioutput import ClassifierChain
@@ -442,27 +442,33 @@ def preprocessData(datasets):
 def select_svd_dim(vecs, explained_variance_threshold=0.3, step_size=2, max_dim=200):
     dim = 0
     target = 0
+    iteration = 0
 
+    print("Find optimal dimension")
     while target < explained_variance_threshold:
+        iteration += 1
         # Increase dimensionality
-        dim = dim + step_size
+        dim += step_size
 
         # Fit svd
         temp_svd = TruncatedSVD(dim)
 
-        for vec in vecs:
-            temp_svd.fit(vec)
+        temp_svd.fit(vecs)
 
         # Get explained variance
         variance = temp_svd.explained_variance_ratio_.sum()
 
         if(variance >= target):
             target = variance
-        else:
-            changing = False
 
-        if(dim > max_dim):
-            changing = False
+        if iteration % 5 == 0:
+            step_size *= 2
+
+        print("Current dim: ", dim, " Current var: ",
+              variance, "Current step_size: ", step_size)
+
+        # if(dim > max_dim - step_size or dim + step_size >= vec.get_shape()[1]):
+        #     target = explained_variance_threshold
 
     return dim
 
@@ -616,8 +622,6 @@ multi_keyword_vecs = multi_keyword_tfidf.transform(multi)
 new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
 # classification
-out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
-
 datasets = [
     ["abstract max_df=0.8", abstract_vecs],
     ["abstract max_df=0.6", abstract_60_vecs],
@@ -631,60 +635,61 @@ dimension_reductions = [
      [
          {
              "explained_variance_threshold": 0.4,
-             "step_size": 3,
+             "step_size": 15,
              "max_dim": 200,
-             "n_dim": 0
          },
          {
              "explained_variance_threshold": 0.6,
-             "step_size": 6,
+             "step_size": 30,
              "max_dim": 400,
-             "n_dim": 0
          },
          {
              "explained_variance_threshold": 0.8,
-             "step_size": 9,
+             "step_size": 45,
              "max_dim": 600,
-             "n_dim": 0
          },
      ]],
-    ["NMF",
-     NMF,
-     [
-         {
+    # ["NMF",
+    #  NMF,
+    #  [
+    #      {
 
-         }
-     ]]
+    #      }
+    #  ]]
 ]
 
 # NMF(20, init="nndsvda").fit(abstract_vecs).reconstruction_err_
 
 classifications = [
     ["DecisionTree", DecisionTreeClassifier, [
-        {"criterion": "gini", "min_samples_split": 0.01},
-        {"criterion": "entropy", "min_samples_split": 0.01},
-        {"criterion": "gini", "min_samples_split": 0.05},
-        {"criterion": "entropy", "min_samples_split": 0.05},
+        # {"criterion": "gini", "min_samples_split": 0.01},
+        # {"criterion": "entropy", "min_samples_split": 0.01},
+        # {"criterion": "gini", "min_samples_split": 0.05},
+        # {"criterion": "entropy", "min_samples_split": 0.05},
+        {"criterion": "gini"},
+        {"criterion": "entropy"},
     ]],
     ["AdaBoost", AdaBoostClassifier, [
-        {"n_estimators": 300, "learning_rate": 1},
-        {"n_estimators": 300, "learning_rate": 0.5},
+        {"n_estimators": 200, "learning_rate": 1},
+        {"n_estimators": 200, "learning_rate": 0.5},
     ]],
     ["GradientBoostingClassifier", GradientBoostingClassifier, [
-        {"n_estimators": 300}
+        {"n_estimators": 200}
     ]],
     ["SVM", SVC, [
         {"probability": "True"},
     ]],
     ["Random Forest", RandomForestClassifier, [
-        {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.01},
-        {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.01},
-        {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
-        {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
+        # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.01},
+        # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.01},
+        # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
+        # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
+        {"n_estimators": 200, "criterion": "gini"},
+        {"n_estimators": 200, "criterion": "entropy"},
     ]],
     ["MLP", MLPClassifier, [
-        {"hidden_layer_sizes": 100, "activation": "relu",
-            "learning_rate": "invscaling"},
+        # {"hidden_layer_sizes": 100, "activation": "relu",
+        #     "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
         {"hidden_layer_sizes": (50, 50), "activation": "relu",
          "learning_rate": "adaptive"},
@@ -693,103 +698,98 @@ classifications = [
     ]]
 ]
 
-for data_id, dataset in enumerate(datasets):
-    name = dataset[0]
-    train = dataset[1]
-    test = dataset[2]
+# 4 datasets 4 dimension varitions 11 classifiers
 
-    for cls_id, classification in enumerate(classifications):
-        clf_name = classification[0]
-        clf_params = classification[2]
 
-        if isinstance(clf_params, list):
+def find_best_classifier(datasets, dimension_reductions, classifications):
+    out = pd.DataFrame(
+        columns=["Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"])
+
+    for data_id, dataset in enumerate(datasets):
+        name = dataset[0]
+        data = dataset[1]
+
+        print("dataset: ", name)
+        for cls_id, classification in enumerate(classifications):
+            clf_name = classification[0]
+            clf_params = classification[2]
+
+            print("classifier: ", clf_name)
+            # Classify on the original tfidf vectors
             for param in clf_params:
-                clf = classification[1](**param)
-                clf.fit(train, y_train)
+                skf = ShuffleSplit(n_splits=2)
+                acc_scores = []
+                pre_scores = []
+                rec_scores = []
 
-                clf_acc = clf.score(test, y_test)
+                for train_index, test_index in skf.split(data, y):
+                    X_train, X_test = data[train_index], data[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
 
-                out = out.append(pd.DataFrame([[name, clf_name, str(param), clf_acc]], columns=[
-                                 "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
-        else:
-            params = clf_params
-            clf = classification[1](**params)
-            clf.fit(train, y_train)
+                    clf = MultiOutputClassifier(classification[1](**param))
+                    clf.fit(X_train, y_train)
 
-            clf_acc = clf.score(test, y_test)
+                    y_pred = clf.predict(X_test)
+                    prfs = precision_recall_fscore_support(y_test, y_pred)
 
-            out = out.append(pd.DataFrame([[name, clf_name, str(clf_params), clf_acc]], columns=[
-                             "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
+                    acc_scores.append(clf.score(X_test, y_test))
+                    pre_scores.append(prfs[0].mean())
+                    rec_scores.append(prfs[1].mean())
 
-        print("Dataset: "+str(data_id+1)+"/"+str(len(datasets)) +
-              ", Classification: "+str(cls_id+1)+"/"+str(len(classifications)))
+                clf_acc = np.array(acc_scores).mean()
+                clf_pre = np.array(pre_scores).mean()
+                clf_rec = np.array(rec_scores).mean()
+                out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
+                    "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
-out.to_csv("results.csv")
+                print("a p r", clf_acc, clf_pre, clf_rec)
 
-
-multiclass = [
-    ["Gradient Boosting", GradientBoostingClassifier, [
-        {"learning_rate": 0.1, "n_estimators": 100},
-        {"learning_rate": 0.1, "n_estimators": 200},
-        {"learning_rate": 0.1, "n_estimators": 300},
-        {"learning_rate": 0.02, "n_estimators": 100},
-        {"learning_rate": 0.02, "n_estimators": 200},
-        {"learning_rate": 0.02, "n_estimators": 300},
-    ]],
-    ["Decision Tree", DecisionTreeClassifier, [
-        {"criterion": "gini", "min_samples_leaf": 5},
-        {"criterion": "gini", "min_samples_leaf": 10},
-        {"criterion": "entropy", "min_samples_leaf": 5},
-        {"criterion": "entropy", "min_samples_leaf": 10},
-    ]],
-    ["Multinomial NB", MultinomialNB, {}],
-    ["Naive Bayer Gaussian", GaussianNB, {}],
-    ["SGD", SGDClassifier, [
-        {"loss": "hinge", "penalty": "l2"},
-        {"loss": "log", "penalty": "l2"},
-        {"loss": "perceptron", "penalty": "l2"},
-        {"loss": "hinge", "penalty": "l1"},
-        {"loss": "log", "penalty": "l1"},
-        {"loss": "perceptron", "penalty": "l1"},
-        {"loss": "hinge", "penalty": "elasticnet"},
-        {"loss": "log", "penalty": "elasticnet"},
-        {"loss": "perceptron", "penalty": "elasticnet"},
-    ]],
-    ["Logistic Regression", LogisticRegression,
-        {"multi_class": "Multinomial"}],
-    ["Linear Discriminant Analysis", LinearDiscriminantAnalysis, {}]
-]
-out = pd.DataFrame(columns=["Dataset", "Method", "Params", "Accuracy"])
-
-for dataset in datasets:
-    name = dataset[0]
-    train = dataset[1]
-    test = dataset[2]
-
-    for classification in multiclass:
-        clf_name = classification[0]
-        clf_params = classification[2]
-
-        if isinstance(clf_params, list):
+            # Classify on the svd vectors
             for param in clf_params:
-                clf = MultiOutputClassifier(classification[1](**param))
-                clf.fit(train, y_train)
+                for dr_method in dimension_reductions:
+                    dr_name = dr_method[0]
+                    dr_params = dr_method[2]
 
-                clf_acc = clf.score(test, y_test)
+                    print("dr method: ", dr_name)
 
-                out = out.append(pd.DataFrame([["Multioutput "+name, clf_name, str(param), clf_acc]], columns=[
-                                 "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
-        else:
-            params = clf_params
-            clf = MultiOutputClassifier(classification[1](**params))
-            clf.fit(train, y_train)
+                    for params in dr_params:
+                        skf = ShuffleSplit(n_splits=2)
+                        acc_scores = []
+                        pre_scores = []
+                        rec_scores = []
 
-            clf_acc = clf.score(test, y_test)
+                        dim = select_svd_dim(data, **params)
+                        dr = dr_method[1](dim).fit_transform(data)
 
-            out = out.append(pd.DataFrame([["Multipoutput "+name, clf_name, str(clf_params), clf_acc]], columns=[
-                             "Dataset", "Method", "Params", "Accuracy"]), ignore_index=True)
+                        for train_index, test_index in skf.split(dr, y):
+                            X_train, X_test = dr[train_index], dr[test_index]
+                            y_train, y_test = y[train_index], y[test_index]
 
-out.to_csv("results_multioutput.csv")
+                            clf = MultiOutputClassifier(
+                                classification[1](**param))
+                            clf.fit(X_train, y_train)
+
+                            y_pred = clf.predict(X_test)
+
+                            prfs = precision_recall_fscore_support(
+                                y_test, y_pred)
+
+                            acc_scores.append(clf.score(X_test, y_test))
+                            pre_scores.append(prfs[0].mean())
+                            rec_scores.append(prfs[1].mean())
+
+                        clf_acc = np.array(acc_scores).mean()
+                        clf_pre = np.array(pre_scores).mean()
+                        clf_rec = np.array(rec_scores).mean()
+                        out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
+                            "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
+
+                        print("a p r", clf_acc, clf_pre, clf_rec)
+
+        # Safety output after each dataset
+        out.to_csv("results.csv")
+
+    out.to_csv("results.csv")
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
