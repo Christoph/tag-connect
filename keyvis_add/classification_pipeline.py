@@ -623,8 +623,8 @@ new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
 # classification
 datasets = [
-    ["abstract max_df=0.8", abstract_vecs],
-    ["abstract max_df=0.6", abstract_60_vecs],
+    # ["abstract max_df=0.8", abstract_vecs],
+    # ["abstract max_df=0.6", abstract_60_vecs],
     ["single keywords", single_keyword_vecs],
     ["multi keywords", multi_keyword_vecs],
 ]
@@ -638,16 +638,16 @@ dimension_reductions = [
              "step_size": 15,
              "max_dim": 200,
          },
-         {
-             "explained_variance_threshold": 0.6,
-             "step_size": 30,
-             "max_dim": 400,
-         },
-         {
-             "explained_variance_threshold": 0.8,
-             "step_size": 45,
-             "max_dim": 600,
-         },
+        #  {
+        #      "explained_variance_threshold": 0.6,
+        #      "step_size": 30,
+        #      "max_dim": 400,
+        #  },
+        #  {
+        #      "explained_variance_threshold": 0.8,
+        #      "step_size": 45,
+        #      "max_dim": 600,
+        #  },
      ]],
     # ["NMF",
     #  NMF,
@@ -666,12 +666,12 @@ classifications = [
         # {"criterion": "entropy", "min_samples_split": 0.01},
         # {"criterion": "gini", "min_samples_split": 0.05},
         # {"criterion": "entropy", "min_samples_split": 0.05},
-        {"criterion": "gini"},
+        # {"criterion": "gini"},
         {"criterion": "entropy"},
     ]],
     ["AdaBoost", AdaBoostClassifier, [
         {"n_estimators": 200, "learning_rate": 1},
-        {"n_estimators": 200, "learning_rate": 0.5},
+        # {"n_estimators": 200, "learning_rate": 0.5},
     ]],
     ["GradientBoostingClassifier", GradientBoostingClassifier, [
         {"n_estimators": 200}
@@ -684,53 +684,57 @@ classifications = [
         # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.01},
         # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
         # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
-        {"n_estimators": 200, "criterion": "gini"},
+        # {"n_estimators": 200, "criterion": "gini"},
         {"n_estimators": 200, "criterion": "entropy"},
     ]],
     ["MLP", MLPClassifier, [
         # {"hidden_layer_sizes": 100, "activation": "relu",
         #     "learning_rate": "invscaling"},
         {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (50, 50), "activation": "relu",
-         "learning_rate": "adaptive"},
+        # {"hidden_layer_sizes": (50, 50), "activation": "relu",
+        #  "learning_rate": "adaptive"},
         {"hidden_layer_sizes": (100, 100), "activation": "relu",
          "learning_rate": "adaptive"},
     ]]
 ]
 
 # 4 datasets 4 dimension varitions 11 classifiers
-
-
 def find_best_classifier(datasets, dimension_reductions, classifications):
     out = pd.DataFrame(
         columns=["Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"])
 
+    # Iterate datasets
     for data_id, dataset in enumerate(datasets):
         name = dataset[0]
         data = dataset[1]
+        skf = ShuffleSplit(n_splits=2)
 
-        print("dataset: ", name)
-        for cls_id, classification in enumerate(classifications):
-            clf_name = classification[0]
-            clf_params = classification[2]
+        print("datasets: ", str(data_id+1), "/", str(len(datasets)))
 
-            print("classifier: ", clf_name)
-            # Classify on the original tfidf vectors
-            for param in clf_params:
-                skf = ShuffleSplit(n_splits=2)
-                acc_scores = []
-                pre_scores = []
-                rec_scores = []
+        # Iterate splits
+        for train_index, test_index in skf.split(data, y):
+            acc_scores = []
+            pre_scores = []
+            rec_scores = []
 
-                for train_index, test_index in skf.split(data, y):
-                    X_train, X_test = data[train_index], data[test_index]
-                    y_train, y_test = y[train_index], y[test_index]
+            X_train, X_test = data[train_index], data[test_index]
+            y_train, y_test = y[train_index], y[test_index]
 
+            # Iterate classifications
+            for cls_id, classification in enumerate(classifications):
+                clf_name = classification[0]
+                clf_params = classification[2]
+
+                print("classifier: ", clf_name, ", ", str(cls_id+1), "/", len(classifications))
+
+                # Iterate parametrizations
+                for p_id, param in enumerate(clf_params):
+                    print("Params: ", param, ", ", str(p_id+1), "/"+str(len(clf_params)))
                     clf = MultiOutputClassifier(classification[1](**param))
                     clf.fit(X_train, y_train)
 
                     y_pred = clf.predict(X_test)
-                    prfs = precision_recall_fscore_support(y_test, y_pred)
+                    prfs = precision_recall_fscore_support(y_test, y_pred, warn_for=[])
 
                     acc_scores.append(clf.score(X_test, y_test))
                     pre_scores.append(prfs[0].mean())
@@ -742,29 +746,41 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                     "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
-                print("a p r", clf_acc, clf_pre, clf_rec)
+        # Save after non dr methods
+        out.to_csv("results.csv")
 
-            # Classify on the svd vectors
-            for param in clf_params:
-                for dr_method in dimension_reductions:
-                    dr_name = dr_method[0]
-                    dr_params = dr_method[2]
+        # Iterate the dimension reductions
+        for dr_m_id, dr_method in enumerate(dimension_reductions):
+            dr_name = dr_method[0]
+            dr_params = dr_method[2]
 
-                    print("dr method: ", dr_name)
+            print("DR Method: ", dr_method, ", ", str(dr_m_id+1), "/"+str(len(dimension_reductions)))
 
-                    for params in dr_params:
-                        skf = ShuffleSplit(n_splits=2)
-                        acc_scores = []
-                        pre_scores = []
-                        rec_scores = []
+            # Iterate the dr parametrizations
+            for dr_id, dr_params in enumerate(dr_params):
+                print("Params: ", dr_params, ", ", str(dr_id+1), "/"+str(len(clf_params)))
+                skf = ShuffleSplit(n_splits=2)
+                acc_scores = []
+                pre_scores = []
+                rec_scores = []
 
-                        dim = select_svd_dim(data, **params)
-                        dr = dr_method[1](dim).fit_transform(data)
+                dim = select_svd_dim(data, **dr_params)
+                dr = dr_method[1](dim).fit_transform(data)
 
-                        for train_index, test_index in skf.split(dr, y):
-                            X_train, X_test = dr[train_index], dr[test_index]
-                            y_train, y_test = y[train_index], y[test_index]
+                for train_index, test_index in skf.split(dr, y):
+                    X_train, X_test = dr[train_index], dr[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
 
+                    # Iterate the classifications
+                    for cls_id, classification in enumerate(classifications):
+                        clf_name = classification[0]
+                        clf_params = classification[2]
+
+                        print("classifier: ", clf_name, ", ", str(cls_id+1), "/", str(len(classifications)))
+
+                        # Iterate the clf params
+                        for p_id, param in enumerate(clf_params):
+                            print("Params: ", param, ", ", p_id+1, "/"+str(len(clf_params)))
                             clf = MultiOutputClassifier(
                                 classification[1](**param))
                             clf.fit(X_train, y_train)
@@ -772,7 +788,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                             y_pred = clf.predict(X_test)
 
                             prfs = precision_recall_fscore_support(
-                                y_test, y_pred)
+                                y_test, y_pred, warn_for=[])
 
                             acc_scores.append(clf.score(X_test, y_test))
                             pre_scores.append(prfs[0].mean())
@@ -784,11 +800,16 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                         out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                             "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
-                        print("a p r", clf_acc, clf_pre, clf_rec)
+                    # Save after each classification
+                    out.to_csv("results.csv")
+
+            # Save after each dr method
+            out.to_csv("results.csv")
 
         # Safety output after each dataset
         out.to_csv("results.csv")
 
+    # Final save
     out.to_csv("results.csv")
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
