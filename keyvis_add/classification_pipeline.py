@@ -623,8 +623,8 @@ new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
 # classification
 datasets = [
-    # ["abstract max_df=0.8", abstract_vecs],
-    # ["abstract max_df=0.6", abstract_60_vecs],
+    ["abstract max_df=0.8", abstract_vecs],
+    ["abstract max_df=0.6", abstract_60_vecs],
     ["single keywords", single_keyword_vecs],
     ["multi keywords", multi_keyword_vecs],
 ]
@@ -635,17 +635,17 @@ dimension_reductions = [
      [
          {
              "explained_variance_threshold": 0.4,
-             "step_size": 15,
-             "max_dim": 200,
+             "step_size": 5,
+             "max_dim": 400,
          },
         #  {
         #      "explained_variance_threshold": 0.6,
-        #      "step_size": 30,
+        #      "step_size": 10,
         #      "max_dim": 400,
         #  },
         #  {
         #      "explained_variance_threshold": 0.8,
-        #      "step_size": 45,
+        #      "step_size": 15,
         #      "max_dim": 600,
         #  },
      ]],
@@ -670,14 +670,18 @@ classifications = [
         {"criterion": "entropy"},
     ]],
     ["AdaBoost", AdaBoostClassifier, [
+        {"n_estimators": 100, "learning_rate": 1},
         {"n_estimators": 200, "learning_rate": 1},
         # {"n_estimators": 200, "learning_rate": 0.5},
     ]],
     ["GradientBoostingClassifier", GradientBoostingClassifier, [
-        {"n_estimators": 200}
+        {"n_estimators": 50},
+        {"n_estimators": 100},
+        # {"n_estimators": 200},
     ]],
     ["SVM", SVC, [
-        {"probability": "True"},
+        {"gamma": "scale"},
+        {"gamma": "scale", "kernel": "linear"},
     ]],
     ["Random Forest", RandomForestClassifier, [
         # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.01},
@@ -685,17 +689,18 @@ classifications = [
         # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
         # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
         # {"n_estimators": 200, "criterion": "gini"},
-        {"n_estimators": 200, "criterion": "entropy"},
+        {"n_estimators": 100, "criterion": "entropy"},
     ]],
-    ["MLP", MLPClassifier, [
-        # {"hidden_layer_sizes": 100, "activation": "relu",
-        #     "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 100, "activation": "relu", "learning_rate": "adaptive"},
-        # {"hidden_layer_sizes": (50, 50), "activation": "relu",
-        #  "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu",
-         "learning_rate": "adaptive"},
-    ]]
+    # ["MLP", MLPClassifier, [
+    #     # {"hidden_layer_sizes": 100, "activation": "relu",
+    #     #     "learning_rate": "invscaling"},
+    #     {"hidden_layer_sizes": 100, "activation": "relu",
+    #         "solver": "lbfgs", "max_iter": 200},
+    #     # {"hidden_layer_sizes": (50, 50), "activation": "relu",
+    #     #  "learning_rate": "adaptive"},
+    #     {"hidden_layer_sizes": (100, 100), "activation": "relu",
+    #      "solver": "lbfgs", "max_iter": 200},
+    # ]]
 ]
 
 # 4 datasets 4 dimension varitions 11 classifiers
@@ -731,14 +736,20 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 for p_id, param in enumerate(clf_params):
                     print("Params: ", param, ", ", str(p_id+1), "/"+str(len(clf_params)))
                     clf = MultiOutputClassifier(classification[1](**param))
-                    clf.fit(X_train, y_train)
+                    try:
+                        clf.fit(X_train, y_train)
+                        y_pred = clf.predict(X_test)
+                        prfs = precision_recall_fscore_support(y_test, y_pred, warn_for=[])
 
-                    y_pred = clf.predict(X_test)
-                    prfs = precision_recall_fscore_support(y_test, y_pred, warn_for=[])
+                        acc_scores.append(clf.score(X_test, y_test))
+                        pre_scores.append(prfs[0].mean())
+                        rec_scores.append(prfs[1].mean())
+                    except:
+                        print("Exception during fitting")
+                        acc_scores.append(0)
+                        pre_scores.append(0)
+                        rec_scores.append(0)
 
-                    acc_scores.append(clf.score(X_test, y_test))
-                    pre_scores.append(prfs[0].mean())
-                    rec_scores.append(prfs[1].mean())
 
                 clf_acc = np.array(acc_scores).mean()
                 clf_pre = np.array(pre_scores).mean()
@@ -781,18 +792,26 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                         # Iterate the clf params
                         for p_id, param in enumerate(clf_params):
                             print("Params: ", param, ", ", p_id+1, "/"+str(len(clf_params)))
-                            clf = MultiOutputClassifier(
-                                classification[1](**param))
-                            clf.fit(X_train, y_train)
 
-                            y_pred = clf.predict(X_test)
 
-                            prfs = precision_recall_fscore_support(
+                            try:
+                                clf = MultiOutputClassifier(
+                                    classification[1](**param))
+                                clf.fit(X_train, y_train)
+
+                                y_pred = clf.predict(X_test)
+
+                                prfs = precision_recall_fscore_support(
+
                                 y_test, y_pred, warn_for=[])
-
-                            acc_scores.append(clf.score(X_test, y_test))
-                            pre_scores.append(prfs[0].mean())
-                            rec_scores.append(prfs[1].mean())
+                                acc_scores.append(clf.score(X_test, y_test))
+                                pre_scores.append(prfs[0].mean())
+                                rec_scores.append(prfs[1].mean())
+                            except:
+                                print("Exception during fitting")
+                                acc_scores.append(0)
+                                pre_scores.append(0)
+                                rec_scores.append(0)
 
                         clf_acc = np.array(acc_scores).mean()
                         clf_pre = np.array(pre_scores).mean()
