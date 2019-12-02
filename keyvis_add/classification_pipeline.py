@@ -816,7 +816,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                         clf_acc = np.array(acc_scores).mean()
                         clf_pre = np.array(pre_scores).mean()
                         clf_rec = np.array(rec_scores).mean()
-                        out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
+                        out = out.append(pd.DataFrame([[name, dr_name, dim, clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                             "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
                     # Save after each classification
