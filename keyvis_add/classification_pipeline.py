@@ -651,11 +651,12 @@ for doc in new_abstracts:
 
 # classification
 datasets = [
-    # ["abstract max_df=0.8", abstract_vecs],
-    # ["abstract max_df=0.6", abstract_60_vecs],
-    # ["single keywords", single_keyword_vecs],
+    ["abstract max_df=0.8", abstract_vecs],
+    ["abstract max_df=0.6", abstract_60_vecs],
+    ["single keywords", single_keyword_vecs],
     ["bert single keywords", np.array(bert_single_vecs)],
-    # ["multi keywords", multi_keyword_vecs]
+    ["bert abstracts", np.array(bert_abstract_vecs)],
+    ["multi keywords", multi_keyword_vecs]
 ]
 
 dimension_reductions = [
@@ -698,51 +699,56 @@ classifications = [
         {"criterion": "gini"},
         {"criterion": "entropy"},
     ]],
-    # # Very slow
-    # ["AdaBoost", AdaBoostClassifier, [
-    #     {"n_estimators": 25, "learning_rate": 1},
-    #     {"n_estimators": 50, "learning_rate": 1},
-    #     {"n_estimators": 100, "learning_rate": 1},
-    #     {"n_estimators": 200, "learning_rate": 1},
-    #     {"n_estimators": 300, "learning_rate": 1},
-    # ]],
-    # ["GradientBoostingClassifier", GradientBoostingClassifier, [
-    #     {"n_estimators": 25},
-    #     {"n_estimators": 50},
-    #     {"n_estimators": 100},
-    #     {"n_estimators": 200},
-    #     {"n_estimators": 300},
-    # ]],
-    # ["SVM", SVC, [
-    #     {"gamma": "scale"},
-    #     {"c": 2, "gamma": "scale"},
-    #     {"gamma": "scale", "kernel": "linear"},
-    #     {"c": 2, "gamma": "scale", "kernel": "linear"},
-    # ]],
-    # ["Random Forest", RandomForestClassifier, [
-    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.01},
-    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.05},
-    #     {"n_estimators": 100, "criterion": "gini"},
-    #     {"n_estimators": 100, "criterion": "entropy"},
-    #     {"n_estimators": 200, "criterion": "gini"},
-    #     {"n_estimators": 200, "criterion": "entropy"},
-    #     {"n_estimators": 300, "criterion": "gini"},
-    #     {"n_estimators": 300, "criterion": "entropy"},
-    #     {"n_estimators": 200, "criterion": "gini", "max_leaf_nodes": 179},
-    #     {"n_estimators": 200, "criterion": "entropy", "max_leaf_nodes": 179},
-    # ]],
-    # ["MLP", MLPClassifier, [
-    #     {"hidden_layer_sizes": 50, "activation": "relu",
-    #         "solver": "lbfgs", "max_iter": 200},
-    #     {"hidden_layer_sizes": 100, "activation": "relu",
-    #         "solver": "lbfgs", "max_iter": 200},
-    #     {"hidden_layer_sizes": 200, "activation": "relu",
-    #         "solver": "lbfgs", "max_iter": 200},
-    #     {"hidden_layer_sizes": (50, 50), "activation": "relu",
-    #      "solver": "lbfgs", "max_iter": 200},
-    #     {"hidden_layer_sizes": (100, 100), "activation": "relu",
-    #      "solver": "lbfgs", "max_iter": 200},
-    # ]]
+    # Very slow
+    ["AdaBoost", AdaBoostClassifier, [
+        {"n_estimators": 25, "learning_rate": 1},
+        {"n_estimators": 25, "learning_rate": 0.5},
+        {"n_estimators": 50, "learning_rate": 1},
+        {"n_estimators": 100, "learning_rate": 1},
+        # {"n_estimators": 200, "learning_rate": 1},
+        # {"n_estimators": 300, "learning_rate": 1},
+    ]],
+    ["GradientBoostingClassifier", GradientBoostingClassifier, [
+        {"n_estimators": 25},
+        {"n_estimators": 50},
+        {"n_estimators": 100},
+        {"n_estimators": 200},
+        # {"n_estimators": 300},
+    ]],
+    ["SVM", SVC, [
+        {"gamma": "scale"},
+        {"c": 2, "gamma": "scale"},
+        {"gamma": "scale", "kernel": "linear"},
+        {"c": 2, "gamma": "scale", "kernel": "linear"},
+    ]],
+    ["Random Forest", RandomForestClassifier, [
+        {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.01},
+        {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.05},
+        {"n_estimators": 100, "criterion": "gini"},
+        {"n_estimators": 100, "criterion": "entropy"},
+        {"n_estimators": 200, "criterion": "gini"},
+        {"n_estimators": 200, "criterion": "entropy"},
+        {"n_estimators": 300, "criterion": "gini"},
+        {"n_estimators": 300, "criterion": "entropy"},
+        {"n_estimators": 200, "criterion": "gini", "max_leaf_nodes": 179},
+        {"n_estimators": 200, "criterion": "entropy", "max_leaf_nodes": 179},
+    ]],
+    ["MLP", MLPClassifier, [
+        {"hidden_layer_sizes": 20, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": 50, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": 100, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": 200, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (20, 20), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (50, 50), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (100, 100), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 200},
+    ]]
 ]
 
 
@@ -754,7 +760,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
     for data_id, dataset in enumerate(datasets):
         name = dataset[0]
         data = dataset[1]
-        skf = ShuffleSplit(n_splits=3)
+        skf = ShuffleSplit(n_splits=2)
         split_indices = []
                 
         for train_index, test_index in skf.split(data, y):
@@ -801,71 +807,72 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 clf_acc = np.array(acc_scores).mean()
                 clf_pre = np.array(pre_scores).mean()
                 clf_rec = np.array(rec_scores).mean()
-                out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
+                out = out.append(pd.DataFrame([[name, "None", "original", clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                     "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
                 
             out.to_csv("results.csv", index=False)
 
         # Iterate the dimension reductions
-        for dr_m_id, dr_method in enumerate(dimension_reductions):
-            dr_name = dr_method[0]
-            dr_params = dr_method[2]
+        if "bert" not in name:
+            for dr_m_id, dr_method in enumerate(dimension_reductions):
+                dr_name = dr_method[0]
+                dr_params = dr_method[2]
 
-            print("DR Method: ", dr_method, ", ", str(dr_m_id+1), "/"+str(len(dimension_reductions)))
+                print("DR Method: ", dr_method, ", ", str(dr_m_id+1), "/"+str(len(dimension_reductions)))
 
-            # Iterate the dr parametrizations
-            for dr_id, dr_params in enumerate(dr_params):
-                print("Params: ", dr_params, ", ", str(dr_id+1), "/"+str(len(clf_params)))
+                # Iterate the dr parametrizations
+                for dr_id, dr_params in enumerate(dr_params):
+                    print("Params: ", dr_params, ", ", str(dr_id+1), "/"+str(len(clf_params)))
 
-                dim = select_svd_dim(data, **dr_params)
-                dr = dr_method[1](dim).fit_transform(data)
+                    dim = select_svd_dim(data, **dr_params)
+                    dr = dr_method[1](dim).fit_transform(data)
 
-                # Iterate the classifications
-                for cls_id, classification in enumerate(classifications):
-                    clf_name = classification[0]
-                    clf_params = classification[2]
+                    # Iterate the classifications
+                    for cls_id, classification in enumerate(classifications):
+                        clf_name = classification[0]
+                        clf_params = classification[2]
 
-                    print("classifier: ", clf_name, ", ", str(cls_id+1), "/", str(len(classifications)))
+                        print("classifier: ", clf_name, ", ", str(cls_id+1), "/", str(len(classifications)))
 
-                    # Iterate the clf params
-                    for p_id, param in enumerate(clf_params):
-                        print("Params: ", param, ", ", p_id+1, "/"+str(len(clf_params)))
+                        # Iterate the clf params
+                        for p_id, param in enumerate(clf_params):
+                            print("Params: ", param, ", ", p_id+1, "/"+str(len(clf_params)))
 
-                        acc_scores = []
-                        pre_scores = []
-                        rec_scores = []
+                            acc_scores = []
+                            pre_scores = []
+                            rec_scores = []
 
-                        for train_index, test_index in split_indices:
-                            X_train, X_test = dr[train_index], dr[test_index]
-                            y_train, y_test = y[train_index], y[test_index]
+                            for train_index, test_index in split_indices:
+                                X_train, X_test = dr[train_index], dr[test_index]
+                                y_train, y_test = y[train_index], y[test_index]
 
-                            try:
-                                clf = MultiOutputClassifier(
-                                    classification[1](**param))
-                                clf.fit(X_train, y_train)
+                                try:
+                                    clf = MultiOutputClassifier(
+                                        classification[1](**param))
+                                    clf.fit(X_train, y_train)
 
-                                y_pred = clf.predict(X_test)
+                                    y_pred = clf.predict(X_test)
 
-                                prfs = precision_recall_fscore_support(
+                                    prfs = precision_recall_fscore_support(
 
-                                y_test, y_pred, warn_for=[])
-                                acc_scores.append(clf.score(X_test, y_test))
-                                pre_scores.append(prfs[0].mean())
-                                rec_scores.append(prfs[1].mean())
-                            except:
-                                print("Exception during fitting")
-                                acc_scores.append(0)
-                                pre_scores.append(0)
-                                rec_scores.append(0)
+                                    y_test, y_pred, warn_for=[])
+                                    acc_scores.append(clf.score(X_test, y_test))
+                                    pre_scores.append(prfs[0].mean())
+                                    rec_scores.append(prfs[1].mean())
+                                except:
+                                    print("Exception during fitting")
+                                    acc_scores.append(0)
+                                    pre_scores.append(0)
+                                    rec_scores.append(0)
 
-                        clf_acc = np.array(acc_scores).mean()
-                        clf_pre = np.array(pre_scores).mean()
-                        clf_rec = np.array(rec_scores).mean()
-                        out = out.append(pd.DataFrame([[name, dr_name, dim, clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
-                            "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
+                            clf_acc = np.array(acc_scores).mean()
+                            clf_pre = np.array(pre_scores).mean()
+                            clf_rec = np.array(rec_scores).mean()
+                            out = out.append(pd.DataFrame([[name, dr_name, dim, clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
+                                "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
-                    # Save after each classification
-                    out.to_csv("results.csv", index=False)
+                        # Save after each classification
+                        out.to_csv("results.csv", index=False)
 
     # Final save
     out.to_csv("results.csv", index=False)
