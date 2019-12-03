@@ -125,6 +125,39 @@ def get_top_words(model, tfidf, n_top_words):
         out.append(words)
     return out
 
+def select_svd_dim(vecs, explained_variance_threshold=0.3, step_size=2, max_dim=200):
+    dim = 0
+    target = 0
+    iteration = 0
+
+    print("Find optimal dimension")
+    while target < explained_variance_threshold:
+        iteration += 1
+        # Increase dimensionality
+        dim += step_size
+
+        # Fit svd
+        temp_svd = TruncatedSVD(dim)
+
+        temp_svd.fit(vecs)
+
+        # Get explained variance
+        variance = temp_svd.explained_variance_ratio_.sum()
+
+        if(variance >= target):
+            target = variance
+
+        if iteration % 5 == 0:
+            step_size *= 2
+
+        print("Current dim: ", dim, " Current var: ",
+              variance, "Current step_size: ", step_size)
+
+        # if(dim > max_dim - step_size or dim + step_size >= vec.get_shape()[1]):
+        #     target = explained_variance_threshold
+
+    return dim
+
 
 # DATA Loading
 # raw = np.load("../datasets/full.pkl")
@@ -439,39 +472,6 @@ def preprocessData(datasets):
             data.at[i, "Abstract_Vector"] = list(
                 pd.Series(abstract_svd_vecs[index][i]))
 
-
-def select_svd_dim(vecs, explained_variance_threshold=0.3, step_size=2, max_dim=200):
-    dim = 0
-    target = 0
-    iteration = 0
-
-    print("Find optimal dimension")
-    while target < explained_variance_threshold:
-        iteration += 1
-        # Increase dimensionality
-        dim += step_size
-
-        # Fit svd
-        temp_svd = TruncatedSVD(dim)
-
-        temp_svd.fit(vecs)
-
-        # Get explained variance
-        variance = temp_svd.explained_variance_ratio_.sum()
-
-        if(variance >= target):
-            target = variance
-
-        if iteration % 5 == 0:
-            step_size *= 2
-
-        print("Current dim: ", dim, " Current var: ",
-              variance, "Current step_size: ", step_size)
-
-        # if(dim > max_dim - step_size or dim + step_size >= vec.get_shape()[1]):
-        #     target = explained_variance_threshold
-
-    return dim
 
 
 # Saving data
