@@ -5,6 +5,7 @@ from importlib import reload
 import re
 import pandas as pd
 import numpy as np
+import torch
 # from textblob import TextBlob
 from sklearn.decomposition import NMF, LatentDirichletAllocation, FastICA
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -36,7 +37,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 # import RMDL
 
-nlp = spacy.load('en', disable=['ner'])
+nlp = spacy.load('en_core_web_sm', disable=['ner'])
 stop_words = stopwords.words('english')
 
 # Add general functions to the project
@@ -621,12 +622,40 @@ multi_keyword_tfidf.fit(new_multi)
 multi_keyword_vecs = multi_keyword_tfidf.transform(multi)
 new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 
+# BERT embedding
+nlp_bert = spacy.load('en_trf_bertbaseuncased_lg')
+
+is_using_gpu = spacy.prefer_gpu()  
+if is_using_gpu:
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
+
+bert_single_vecs = []
+new_bert_single_vecs = []
+
+# Embed all docs
+for doc in single:
+    bert_single_vecs.append(nlp_bert(doc).vector)
+
+for doc in new_single:
+    new_bert_single_vecs.append(nlp_bert(doc).vector)
+
+bert_abstract_vecs = []
+new_bert_abstract_vecs = []
+
+# Embed all docs
+for doc in abstracts:
+    bert_abstract_vecs.append(nlp_bert(doc).vector)
+
+for doc in new_abstracts:
+    new_bert_abstract_vecs.append(nlp_bert(doc).vector)
+
 # classification
 datasets = [
-    ["abstract max_df=0.8", abstract_vecs],
-    ["abstract max_df=0.6", abstract_60_vecs],
-    ["single keywords", single_keyword_vecs],
-    ["multi keywords", multi_keyword_vecs],
+    # ["abstract max_df=0.8", abstract_vecs],
+    # ["abstract max_df=0.6", abstract_60_vecs],
+    # ["single keywords", single_keyword_vecs],
+    ["bert single keywords", np.array(bert_single_vecs)],
+    # ["multi keywords", multi_keyword_vecs]
 ]
 
 dimension_reductions = [
@@ -662,48 +691,61 @@ dimension_reductions = [
 
 classifications = [
     ["DecisionTree", DecisionTreeClassifier, [
-        # {"criterion": "gini", "min_samples_split": 0.01},
-        # {"criterion": "entropy", "min_samples_split": 0.01},
-        # {"criterion": "gini", "min_samples_split": 0.05},
-        # {"criterion": "entropy", "min_samples_split": 0.05},
-        # {"criterion": "gini"},
+        {"criterion": "gini", "min_samples_split": 0.01},
+        {"criterion": "entropy", "min_samples_split": 0.01},
+        {"criterion": "gini", "min_samples_split": 0.05},
+        {"criterion": "entropy", "min_samples_split": 0.05},
+        {"criterion": "gini"},
         {"criterion": "entropy"},
     ]],
-    ["AdaBoost", AdaBoostClassifier, [
-        {"n_estimators": 100, "learning_rate": 1},
-        {"n_estimators": 200, "learning_rate": 1},
-        # {"n_estimators": 200, "learning_rate": 0.5},
-    ]],
-    ["GradientBoostingClassifier", GradientBoostingClassifier, [
-        {"n_estimators": 50},
-        {"n_estimators": 100},
-        # {"n_estimators": 200},
-    ]],
-    ["SVM", SVC, [
-        {"gamma": "scale"},
-        {"gamma": "scale", "kernel": "linear"},
-    ]],
-    ["Random Forest", RandomForestClassifier, [
-        # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.01},
-        # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.01},
-        # {"n_estimators": 300, "criterion": "gini", "min_samples_split": 0.05},
-        # {"n_estimators": 300, "criterion": "entropy", "min_samples_split": 0.05},
-        # {"n_estimators": 200, "criterion": "gini"},
-        {"n_estimators": 100, "criterion": "entropy"},
-    ]],
-    ["MLP", MLPClassifier, [
-        # {"hidden_layer_sizes": 100, "activation": "relu",
-        #     "learning_rate": "invscaling"},
-        {"hidden_layer_sizes": 100, "activation": "relu",
-            "solver": "lbfgs", "max_iter": 200},
-        # {"hidden_layer_sizes": (50, 50), "activation": "relu",
-        #  "learning_rate": "adaptive"},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu",
-         "solver": "lbfgs", "max_iter": 200},
-    ]]
+    # # Very slow
+    # ["AdaBoost", AdaBoostClassifier, [
+    #     {"n_estimators": 25, "learning_rate": 1},
+    #     {"n_estimators": 50, "learning_rate": 1},
+    #     {"n_estimators": 100, "learning_rate": 1},
+    #     {"n_estimators": 200, "learning_rate": 1},
+    #     {"n_estimators": 300, "learning_rate": 1},
+    # ]],
+    # ["GradientBoostingClassifier", GradientBoostingClassifier, [
+    #     {"n_estimators": 25},
+    #     {"n_estimators": 50},
+    #     {"n_estimators": 100},
+    #     {"n_estimators": 200},
+    #     {"n_estimators": 300},
+    # ]],
+    # ["SVM", SVC, [
+    #     {"gamma": "scale"},
+    #     {"c": 2, "gamma": "scale"},
+    #     {"gamma": "scale", "kernel": "linear"},
+    #     {"c": 2, "gamma": "scale", "kernel": "linear"},
+    # ]],
+    # ["Random Forest", RandomForestClassifier, [
+    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.01},
+    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.05},
+    #     {"n_estimators": 100, "criterion": "gini"},
+    #     {"n_estimators": 100, "criterion": "entropy"},
+    #     {"n_estimators": 200, "criterion": "gini"},
+    #     {"n_estimators": 200, "criterion": "entropy"},
+    #     {"n_estimators": 300, "criterion": "gini"},
+    #     {"n_estimators": 300, "criterion": "entropy"},
+    #     {"n_estimators": 200, "criterion": "gini", "max_leaf_nodes": 179},
+    #     {"n_estimators": 200, "criterion": "entropy", "max_leaf_nodes": 179},
+    # ]],
+    # ["MLP", MLPClassifier, [
+    #     {"hidden_layer_sizes": 50, "activation": "relu",
+    #         "solver": "lbfgs", "max_iter": 200},
+    #     {"hidden_layer_sizes": 100, "activation": "relu",
+    #         "solver": "lbfgs", "max_iter": 200},
+    #     {"hidden_layer_sizes": 200, "activation": "relu",
+    #         "solver": "lbfgs", "max_iter": 200},
+    #     {"hidden_layer_sizes": (50, 50), "activation": "relu",
+    #      "solver": "lbfgs", "max_iter": 200},
+    #     {"hidden_layer_sizes": (100, 100), "activation": "relu",
+    #      "solver": "lbfgs", "max_iter": 200},
+    # ]]
 ]
 
-# 4 datasets 4 dimension varitions 11 classifiers
+
 def find_best_classifier(datasets, dimension_reductions, classifications):
     out = pd.DataFrame(
         columns=["Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"])
@@ -712,7 +754,11 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
     for data_id, dataset in enumerate(datasets):
         name = dataset[0]
         data = dataset[1]
-        skf = ShuffleSplit(n_splits=2)
+        skf = ShuffleSplit(n_splits=3)
+        split_indices = []
+                
+        for train_index, test_index in skf.split(data, y):
+            split_indices.append((train_index, test_index))
 
         print("datasets: ", str(data_id+1), "/", str(len(datasets)))
 
@@ -732,7 +778,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 rec_scores = []
 
                 # Iterate splits
-                for train_index, test_index in skf.split(data, y):
+                for train_index, test_index in split_indices:
 
                     X_train, X_test = data[train_index], data[test_index]
                     y_train, y_test = y[train_index], y[test_index]
@@ -757,6 +803,8 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 clf_rec = np.array(rec_scores).mean()
                 out = out.append(pd.DataFrame([[name, "None", data.get_shape()[1], clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                     "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
+                
+            out.to_csv("results.csv", index=False)
 
         # Iterate the dimension reductions
         for dr_m_id, dr_method in enumerate(dimension_reductions):
@@ -768,7 +816,6 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
             # Iterate the dr parametrizations
             for dr_id, dr_params in enumerate(dr_params):
                 print("Params: ", dr_params, ", ", str(dr_id+1), "/"+str(len(clf_params)))
-                skf = ShuffleSplit(n_splits=2)
 
                 dim = select_svd_dim(data, **dr_params)
                 dr = dr_method[1](dim).fit_transform(data)
@@ -788,7 +835,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                         pre_scores = []
                         rec_scores = []
 
-                        for train_index, test_index in skf.split(dr, y):
+                        for train_index, test_index in split_indices:
                             X_train, X_test = dr[train_index], dr[test_index]
                             y_train, y_test = y[train_index], y[test_index]
 
@@ -818,10 +865,12 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                             "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
 
                     # Save after each classification
-                    out.to_csv("results.csv")
+                    out.to_csv("results.csv", index=False)
 
     # Final save
-    out.to_csv("results.csv")
+    out.to_csv("results.csv", index=False)
+
+    print("DONE!")
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
