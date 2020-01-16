@@ -1,6 +1,8 @@
 import sys
 from os import path
 from importlib import reload
+from collections import Counter
+import random
 
 import re
 import pandas as pd
@@ -507,56 +509,162 @@ study_data = meta.drop(["Abstract_Vector", "Keyword_Vector"], axis=1)
 study_data["Labels"] = ""
 
 # Select study datasets based on
+# Manual data is from 2013
+# Tool data is from 2012
 # Minimum duplicate authors for each set
 # Same amount of Keywords for each author -> 100?
 # More then 3 and less then 7 Keywords per publication
 
+manual_data_all, tool_data_all = train_test_split(study_data, test_size=0.5)
 
+filtered_manual_data = manual_data_all[manual_data_all["DOI"].str.contains('2011|2012|2013', regex=True)]
+filtered_tool_data = tool_data_all[tool_data_all["DOI"].str.contains('2011|2012|2013', regex=True)]
 
-manual_data, tool_data = train_test_split(study_data, test_size=0.5)
-mapping_data = mapping.drop(
-    ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
-mapping_data.columns = ["Keyword", "Label"]
-label_data = classes.drop(["Vector"], axis=1)
-label_data.columns = ["Label"]
+authors = set()
+keywords = []
+manual_data = pd.DataFrame(columns=filtered_manual_data.columns)
+tool_data = pd.DataFrame(columns=filtered_manual_data.columns)
 
-manual_data.to_csv("manual_data.csv", index=False)
-tool_data.to_csv("tool_data.csv", index=False)
-mapping_data.to_csv("mapping.csv", index=False)
-label_data.to_csv("labels.csv", index=False)
-
-subset = manual_data.iloc[:35]
-subset.to_csv("subset.csv", index=False)
-
-subset_keywords = []
-
-for index, row in subset.iterrows():
-    keys = preprocess_keywords(row["Keywords"])
-
-    for word in keys.split(";"):
-        subset_keywords.append(word)
-
-subset_keywords = list(set(subset_keywords))
-
-new_mappings = pd.DataFrame(subset_keywords)
-new_mappings["1"] = ""
-new_mappings.columns = ["Keyword", "Label"]
-
-for index, row in new_mappings.iterrows():
-    result = mapping.loc[mapping['AuthorKeyword']
-                         == row["Keyword"]]["ExpertKeyword"]
-
-    if len(result) > 0:
-        word = result.iloc[0].replace(",", "")
+# Only unique authors and keyword count between 3 and 7
+for index, row in filtered_manual_data.iterrows():
+    temp = row["Authors"].split(";")
+    # if len(temp) >= 3:
+    #     temp = [temp[0], temp[-1]]
+        
+    if any(n in authors for n in temp):
+        pass
     else:
-        word = ""
+        keys = row["Keywords"].split(";")
+        if len(keys) >= 3 and len(keys) <= 7:
+            authors.update(temp)
+            manual_data = manual_data.append(row, ignore_index=True)
 
-    new_mappings.at[index, "Label"] = word
+            keywords.extend(keys)
 
-sum(new_mappings["Label"] != "")
-new_mappings = new_mappings[new_mappings["Label"] == ""]
+count = Counter(keywords)
+frequent = {x : count[x] for x in count if count[x] >= 2}
+rest = {x : count[x] for x in count if count[x] < 2}
 
-new_mappings.to_csv("new_mapping.csv", index=False)
+manual_docs = pd.DataFrame(columns=manual_data.columns)
+keyword_counter = set()
+
+for i, row in manual_data.iterrows():
+    keys = row["Keywords"].split(";")
+    if any(n in list(frequent.keys()) for n in keys):
+        if (len(keyword_counter) + len(keys)) <= 100:
+            keyword_counter.update(keys)
+            manual_docs = manual_docs.append(row, ignore_index=True)
+
+manual_keywords = list(keyword_counter)
+
+authors = set()
+keywords = []
+
+# Only unique authors and keyword count between 3 and 7
+for index, row in filtered_tool_data.iterrows():
+    temp = row["Authors"].split(";")
+    # if len(temp) >= 3:
+    #     temp = [temp[0], temp[-1]]
+        
+    if any(n in authors for n in temp):
+        pass
+    else:
+        keys = row["Keywords"].split(";")
+        if len(keys) >= 3 and len(keys) <= 7:
+            authors.update(temp)
+            manual_data = manual_data.append(row, ignore_index=True)
+
+            keywords.extend(keys)
+
+count = Counter(keywords)
+frequent = {x : count[x] for x in count if count[x] >= 2}
+
+count = Counter(keywords)
+frequent = {x : count[x] for x in count if count[x] >= 2}
+rest = {x : count[x] for x in count if count[x] < 2}
+
+tool_docs = pd.DataFrame(columns=manual_data.columns)
+keyword_counter = set()
+
+for i, row in manual_data.iterrows():
+    keys = row["Keywords"].split(";")
+    if any(n in list(frequent.keys()) for n in keys):
+        if (len(keyword_counter) + len(keys)) <= 100:
+            keyword_counter.update(keys)
+            tool_docs = tool_docs.append(row, ignore_index=True)
+
+tool_keywords = list(keyword_counter)
+
+# Output
+manual_docs.to_csv("manual_docs.csv", index=False)
+tool_docs.to_csv("tool_docs.csv", index=False)
+
+tkout = pd.DataFrame(tool_keywords, columns=["keyword"])
+tkout["label"] = ""
+tkout["time"] = ""
+tkout["truth"] = ""
+
+for i, row in tkout.iterrows():
+    m = mapping[mapping["AuthorKeyword"] == row["keyword"]]
+    row["truth"] = list(m["ExpertKeyword"])[0]
+
+tkout.to_csv("tool_keywords.csv", index=True)
+
+mkout = pd.DataFrame(manual_keywords, columns=["keyword"])
+mkout["label"] = ""
+mkout["time"] = ""
+mkout["truth"] = ""
+
+for i, row in mkout.iterrows():
+    m = mapping[mapping["AuthorKeyword"] == row["keyword"]]
+    row["truth"] = list(m["ExpertKeyword"])[0]
+
+mkout.to_csv("manual_keywords.csv", index=True)
+
+# mapping_data = mapping.drop(
+#     ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
+# mapping_data.columns = ["Keyword", "Label"]
+# label_data = classes.drop(["Vector"], axis=1)
+# label_data.columns = ["Label"]
+
+# manual_data.to_csv("manual_data.csv", index=False)
+# tool_data.to_csv("tool_data.csv", index=False)
+# mapping_data.to_csv("mapping.csv", index=False)
+# label_data.to_csv("labels.csv", index=False)
+
+# subset = manual_data.iloc[:35]
+# subset.to_csv("subset.csv", index=False)
+# print(frequent)
+
+# subset_keywords = []
+
+# for index, row in subset.iterrows():
+#     keys = preprocess_keywords(row["Keywords"])
+
+#     for word in keys.split(";"):
+#         subset_keywords.append(word)
+
+# subset_keywords = list(set(subset_keywords))
+
+# new_mappings = pd.DataFrame(subset_keywords)
+# new_mappings["1"] = ""
+# new_mappings.columns = ["Keyword", "Label"]
+
+# for index, row in new_mappings.iterrows():
+#     result = mapping.loc[mapping['AuthorKeyword']
+#                          == row["Keyword"]]["ExpertKeyword"]
+
+#     if len(result) > 0:
+#         word = result.iloc[0].replace(",", "")
+#     else:
+#         word = ""
+
+#     new_mappings.at[index, "Label"] = word
+
+# sum(new_mappings["Label"] != "")
+# new_mappings = new_mappings[new_mappings["Label"] == ""]
+
+# new_mappings.to_csv("new_mapping.csv", index=False)
 
 # Automatic performance measurement
 
