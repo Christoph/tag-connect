@@ -498,12 +498,19 @@ for index, row in mapping.iterrows():
 mapping.to_json("mapping.json", orient="index")
 
 # Export study data
-meta = pd.read_json("datasets/new_data.json", orient="index")
-mapping = pd.read_json("datasets/mapping.json", orient="index")
-classes = pd.read_json("datasets/classes.json", orient="index")
+meta = pd.read_json("../datasets/old_data.json", orient="index")
+mapping = pd.read_json("../datasets/mapping.json", orient="index")
+classes = pd.read_json("../datasets/classes.json", orient="index")
 
 study_data = meta.drop(["Abstract_Vector", "Keyword_Vector"], axis=1)
 study_data["Labels"] = ""
+
+# Select study datasets based on
+# Minimum duplicate authors for each set
+# Same amount of Keywords for each author -> 100?
+# More then 3 and less then 7 Keywords per publication
+
+
 
 manual_data, tool_data = train_test_split(study_data, test_size=0.5)
 mapping_data = mapping.drop(
@@ -822,6 +829,11 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
 
     # Final save
     out.to_csv("results.csv")
+
+# Train with best classifier
+# DecisionTree
+
+classifier = DecisionTreeClassifier(criterion = "entropy").fit(single_keyword_vecs)
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
