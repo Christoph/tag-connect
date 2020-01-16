@@ -506,7 +506,6 @@ mapping = pd.read_json("../datasets/mapping.json", orient="index")
 classes = pd.read_json("../datasets/classes.json", orient="index")
 
 study_data = meta.drop(["Abstract_Vector", "Keyword_Vector"], axis=1)
-study_data["Labels"] = ""
 
 # Select study datasets based on
 # Manual data is from 2013
@@ -515,18 +514,35 @@ study_data["Labels"] = ""
 # Same amount of Keywords for each author -> 100?
 # More then 3 and less then 7 Keywords per publication
 
-manual_data_all, tool_data_all = train_test_split(study_data, test_size=0.5)
+study_test = study_data[study_data["DOI"].str.contains('2011|2012|2013', regex=True)]
+study_train = study_data[~study_data["DOI"].str.contains('2011|2012|2013', regex=True)]
 
-filtered_manual_data = manual_data_all[manual_data_all["DOI"].str.contains('2011|2012|2013', regex=True)]
-filtered_tool_data = tool_data_all[tool_data_all["DOI"].str.contains('2011|2012|2013', regex=True)]
+train_keywords = set()
+test_keywords = set()
+
+for i, doc in study_train.iterrows():
+    keywords = doc["Keywords"].split(";")
+
+    for keyword in keywords:
+        train_keywords.add(keyword)
+
+for i, doc in study_test.iterrows():
+    keywords = doc["Keywords"].split(";")
+
+    for keyword in keywords:
+        if keyword not in train_keywords:
+            test_keywords.add(keyword)
+
+manual_data_all, tool_data_all = train_test_split(study_test, test_size=0.5)
+
+manual_data = pd.DataFrame(columns=study_data.columns)
+tool_data = pd.DataFrame(columns=study_data.columns)
 
 authors = set()
 keywords = []
-manual_data = pd.DataFrame(columns=filtered_manual_data.columns)
-tool_data = pd.DataFrame(columns=filtered_manual_data.columns)
 
 # Only unique authors and keyword count between 3 and 7
-for index, row in filtered_manual_data.iterrows():
+for index, row in manual_data_all.iterrows():
     temp = row["Authors"].split(";")
     # if len(temp) >= 3:
     #     temp = [temp[0], temp[-1]]
@@ -536,21 +552,22 @@ for index, row in filtered_manual_data.iterrows():
     else:
         keys = row["Keywords"].split(";")
         if len(keys) >= 3 and len(keys) <= 7:
-            authors.update(temp)
-            manual_data = manual_data.append(row, ignore_index=True)
+            if any(k in test_keywords for k in keys):
+                authors.update(temp)
+                manual_data = manual_data.append(row, ignore_index=True)
 
-            keywords.extend(keys)
+                keywords.extend([k for k in keys if k in test_keywords])
 
-count = Counter(keywords)
-frequent = {x : count[x] for x in count if count[x] >= 2}
-rest = {x : count[x] for x in count if count[x] < 2}
+# count = Counter(keywords)
+# frequent = {x : count[x] for x in count if count[x] >= 2}
+# rest = {x : count[x] for x in count if count[x] < 2}
 
 manual_docs = pd.DataFrame(columns=manual_data.columns)
 keyword_counter = set()
 
 for i, row in manual_data.iterrows():
-    keys = row["Keywords"].split(";")
-    if any(n in list(frequent.keys()) for n in keys):
+    keys = [k for k in row["Keywords"].split(";") if k in keywords]
+    if keys:
         if (len(keyword_counter) + len(keys)) <= 100:
             keyword_counter.update(keys)
             manual_docs = manual_docs.append(row, ignore_index=True)
@@ -561,7 +578,7 @@ authors = set()
 keywords = []
 
 # Only unique authors and keyword count between 3 and 7
-for index, row in filtered_tool_data.iterrows():
+for index, row in tool_data_all.iterrows():
     temp = row["Authors"].split(";")
     # if len(temp) >= 3:
     #     temp = [temp[0], temp[-1]]
@@ -571,24 +588,18 @@ for index, row in filtered_tool_data.iterrows():
     else:
         keys = row["Keywords"].split(";")
         if len(keys) >= 3 and len(keys) <= 7:
-            authors.update(temp)
-            manual_data = manual_data.append(row, ignore_index=True)
+            if any(k in test_keywords for k in keys):
+                authors.update(temp)
+                tool_data = tool_data.append(row, ignore_index=True)
 
-            keywords.extend(keys)
-
-count = Counter(keywords)
-frequent = {x : count[x] for x in count if count[x] >= 2}
-
-count = Counter(keywords)
-frequent = {x : count[x] for x in count if count[x] >= 2}
-rest = {x : count[x] for x in count if count[x] < 2}
+                keywords.extend([k for k in keys if k in test_keywords])
 
 tool_docs = pd.DataFrame(columns=manual_data.columns)
 keyword_counter = set()
 
-for i, row in manual_data.iterrows():
-    keys = row["Keywords"].split(";")
-    if any(n in list(frequent.keys()) for n in keys):
+for i, row in tool_data.iterrows():
+    keys = [k for k in row["Keywords"].split(";") if k in keywords]
+    if keys:
         if (len(keyword_counter) + len(keys)) <= 100:
             keyword_counter.update(keys)
             tool_docs = tool_docs.append(row, ignore_index=True)
@@ -596,6 +607,7 @@ for i, row in manual_data.iterrows():
 tool_keywords = list(keyword_counter)
 
 # Output
+study_train.to_csv("study_old.csv", index=False)
 manual_docs.to_csv("manual_docs.csv", index=False)
 tool_docs.to_csv("tool_docs.csv", index=False)
 
@@ -608,7 +620,7 @@ for i, row in tkout.iterrows():
     m = mapping[mapping["AuthorKeyword"] == row["keyword"]]
     row["truth"] = list(m["ExpertKeyword"])[0]
 
-tkout.to_csv("tool_keywords.csv", index=True)
+tkout.to_csv("tool_keywords.csv", index=False)
 
 mkout = pd.DataFrame(manual_keywords, columns=["keyword"])
 mkout["label"] = ""
@@ -619,7 +631,17 @@ for i, row in mkout.iterrows():
     m = mapping[mapping["AuthorKeyword"] == row["keyword"]]
     row["truth"] = list(m["ExpertKeyword"])[0]
 
-mkout.to_csv("manual_keywords.csv", index=True)
+mkout.to_csv("manual_keywords.csv", index=False)
+
+# Update mapping
+study_mapping = pd.DataFrame(columns=mapping.columns)
+
+for i, m in mapping.iterrows():
+    if m["AuthorKeyword"] not in test_keywords:
+        study_mapping = study_mapping.append(m)
+
+study_mapping.to_csv("study_mapping.csv", index=False)
+
 
 # mapping_data = mapping.drop(
 #     ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
