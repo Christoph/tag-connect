@@ -642,6 +642,34 @@ for i, m in mapping.iterrows():
 
 study_mapping.to_csv("study_mapping.csv", index=False)
 
+mapping = pd.read_json("../datasets/mapping.json", orient="index")
+study_train = pd.read_csv("../datasets/study_old.csv")
+study_test = pd.read_csv("../datasets/tool_docs.csv")
+
+train_keywords = set()
+test_keywords = set()
+study_mapping = pd.DataFrame(columns=mapping.columns)
+
+for i, doc in study_train.iterrows():
+    keywords = doc["Keywords_Processed"].split(";")
+
+    for keyword in keywords:
+        train_keywords.add(keyword)
+
+for i, doc in study_test.iterrows():
+    keywords = doc["Keywords_Processed"].split(";")
+
+    for keyword in keywords:
+        if keyword not in train_keywords:
+            test_keywords.add(keyword)
+
+for i, m in mapping.iterrows():
+    if m["AuthorKeyword"] not in test_keywords:
+        study_mapping = study_mapping.append(m)
+
+study_mapping.to_json("study_mapping.json", orient="index")
+study_train.to_json("study_old_data.json", orient="index")
+study_test.to_json("study_new_data.json", orient="index")
 
 # mapping_data = mapping.drop(
 #     ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
