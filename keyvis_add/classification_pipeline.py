@@ -642,34 +642,6 @@ for i, m in mapping.iterrows():
 
 study_mapping.to_csv("study_mapping.csv", index=False)
 
-mapping = pd.read_json("../datasets/mapping.json", orient="index")
-study_train = pd.read_csv("../datasets/study_old.csv")
-study_test = pd.read_csv("../datasets/tool_docs.csv")
-
-train_keywords = set()
-test_keywords = set()
-study_mapping = pd.DataFrame(columns=mapping.columns)
-
-for i, doc in study_train.iterrows():
-    keywords = doc["Keywords_Processed"].split(";")
-
-    for keyword in keywords:
-        train_keywords.add(keyword)
-
-for i, doc in study_test.iterrows():
-    keywords = doc["Keywords_Processed"].split(";")
-
-    for keyword in keywords:
-        if keyword not in train_keywords:
-            test_keywords.add(keyword)
-
-for i, m in mapping.iterrows():
-    if m["AuthorKeyword"] not in test_keywords:
-        study_mapping = study_mapping.append(m)
-
-study_mapping.to_json("study_mapping.json", orient="index")
-study_train.to_json("study_old_data.json", orient="index")
-study_test.to_json("study_new_data.json", orient="index")
 
 # mapping_data = mapping.drop(
 #     ["AuthorKeywordCount", "ExpertKeywordCount"], axis=1)
@@ -723,9 +695,9 @@ study_test.to_json("study_new_data.json", orient="index")
 # Embedding -
 
 # data
-meta = pd.read_json("datasets/old_data.json", orient="index").sort_index()
+meta = pd.read_json("../datasets/old_data.json", orient="index").sort_index()
 new_data = pd.read_excel(
-    "datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
+    "../datasets/manual_data.xlsx", orient="index", header=1).iloc[0:50]
 
 # Remove leading and trailing ;
 meta['Clusters'] = meta['Clusters'].apply(lambda x: x.strip(';'))
@@ -816,34 +788,34 @@ for doc in new_abstracts:
 
 # classification
 datasets = [
-    ["abstract max_df=0.8", abstract_vecs],
-    ["abstract max_df=0.6", abstract_60_vecs],
-    ["single keywords", single_keyword_vecs],
+    # ["abstract max_df=0.8", abstract_vecs],
+    # ["abstract max_df=0.6", abstract_60_vecs],
+    # ["single keywords", single_keyword_vecs],
     ["bert single keywords", np.array(bert_single_vecs)],
     ["bert abstracts", np.array(bert_abstract_vecs)],
-    ["multi keywords", multi_keyword_vecs]
+    # ["multi keywords", multi_keyword_vecs]
 ]
 
 dimension_reductions = [
-    ["SVD",
-     TruncatedSVD,
-     [
-         {
-             "explained_variance_threshold": 0.4,
-             "step_size": 5,
-             "max_dim": 400,
-         },
-        #  {
-        #      "explained_variance_threshold": 0.6,
-        #      "step_size": 10,
-        #      "max_dim": 400,
-        #  },
-        #  {
-        #      "explained_variance_threshold": 0.8,
-        #      "step_size": 15,
-        #      "max_dim": 600,
-        #  },
-     ]],
+    # ["SVD",
+    #  TruncatedSVD,
+    #  [
+    #      {
+    #          "explained_variance_threshold": 0.4,
+    #          "step_size": 5,
+    #          "max_dim": 400,
+    #      },
+    #      {
+    #          "explained_variance_threshold": 0.6,
+    #          "step_size": 10,
+    #          "max_dim": 400,
+    #      },
+    #      {
+    #          "explained_variance_threshold": 0.8,
+    #          "step_size": 15,
+    #          "max_dim": 600,
+    #      },
+    #  ]],
     # ["NMF",
     #  NMF,
     #  [
@@ -856,62 +828,64 @@ dimension_reductions = [
 # NMF(20, init="nndsvda").fit(abstract_vecs).reconstruction_err_
 
 classifications = [
-    ["DecisionTree", DecisionTreeClassifier, [
-        {"criterion": "gini", "min_samples_split": 0.01},
-        {"criterion": "entropy", "min_samples_split": 0.01},
-        {"criterion": "gini", "min_samples_split": 0.05},
-        {"criterion": "entropy", "min_samples_split": 0.05},
-        {"criterion": "gini"},
-        {"criterion": "entropy"},
-    ]],
+    # ["DecisionTree", DecisionTreeClassifier, [
+    #     {"criterion": "gini", "min_samples_split": 0.01},
+    #     {"criterion": "entropy", "min_samples_split": 0.01},
+    #     {"criterion": "gini", "min_samples_split": 0.05},
+    #     {"criterion": "entropy", "min_samples_split": 0.05},
+    #     {"criterion": "gini"},
+    #     {"criterion": "entropy"},
+    # ]],
     # Very slow
-    ["AdaBoost", AdaBoostClassifier, [
-        {"n_estimators": 25, "learning_rate": 1},
-        {"n_estimators": 25, "learning_rate": 0.5},
-        {"n_estimators": 50, "learning_rate": 1},
-        {"n_estimators": 100, "learning_rate": 1},
-        # {"n_estimators": 200, "learning_rate": 1},
-        # {"n_estimators": 300, "learning_rate": 1},
-    ]],
-    ["GradientBoostingClassifier", GradientBoostingClassifier, [
-        {"n_estimators": 25},
-        {"n_estimators": 50},
-        {"n_estimators": 100},
-        {"n_estimators": 200},
-        # {"n_estimators": 300},
-    ]],
+    # ["AdaBoost", AdaBoostClassifier, [
+    #     {"n_estimators": 25, "learning_rate": 1},
+    #     {"n_estimators": 25, "learning_rate": 0.5},
+    #     {"n_estimators": 50, "learning_rate": 1},
+    #     {"n_estimators": 100, "learning_rate": 1},
+    #     # {"n_estimators": 200, "learning_rate": 1},
+    #     # {"n_estimators": 300, "learning_rate": 1},
+    # ]],
+    # ["GradientBoostingClassifier", GradientBoostingClassifier, [
+    #     {"n_estimators": 25},
+    #     {"n_estimators": 50},
+    #     {"n_estimators": 100},
+    #     {"n_estimators": 200},
+    #     # {"n_estimators": 300},
+    # ]],
     ["SVM", SVC, [
-        {"gamma": "scale"},
-        {"c": 2, "gamma": "scale"},
+        {"gamma": "scale", "kernel": "rbf"},
         {"gamma": "scale", "kernel": "linear"},
-        {"c": 2, "gamma": "scale", "kernel": "linear"},
     ]],
-    ["Random Forest", RandomForestClassifier, [
-        {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.01},
-        {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.05},
-        {"n_estimators": 100, "criterion": "gini"},
-        {"n_estimators": 100, "criterion": "entropy"},
-        {"n_estimators": 200, "criterion": "gini"},
-        {"n_estimators": 200, "criterion": "entropy"},
-        {"n_estimators": 300, "criterion": "gini"},
-        {"n_estimators": 300, "criterion": "entropy"},
-        {"n_estimators": 200, "criterion": "gini", "max_leaf_nodes": 179},
-        {"n_estimators": 200, "criterion": "entropy", "max_leaf_nodes": 179},
-    ]],
+    # ["Random Forest", RandomForestClassifier, [
+    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.01},
+    #     {"n_estimators": 200, "criterion": "entropy", "min_samples_split": 0.05},
+    #     {"n_estimators": 100, "criterion": "gini"},
+    #     {"n_estimators": 100, "criterion": "entropy"},
+    #     {"n_estimators": 200, "criterion": "gini"},
+    #     {"n_estimators": 200, "criterion": "entropy"},
+    #     {"n_estimators": 300, "criterion": "gini"},
+    #     {"n_estimators": 300, "criterion": "entropy"},
+    #     {"n_estimators": 200, "criterion": "gini", "max_leaf_nodes": 179},
+    #     {"n_estimators": 200, "criterion": "entropy", "max_leaf_nodes": 179},
+    # ]],
     ["MLP", MLPClassifier, [
+        {"hidden_layer_sizes": 5, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": 10, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": 20, "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": 50, "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
-        {"hidden_layer_sizes": 100, "activation": "relu",
-            "solver": "lbfgs", "max_iter": 200},
-        {"hidden_layer_sizes": 200, "activation": "relu",
+        {"hidden_layer_sizes": (10, 10), "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": (20, 20), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": (50, 50), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
-        {"hidden_layer_sizes": (100, 100), "activation": "relu",
+        {"hidden_layer_sizes": (50, 20, 10), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (20, 20, 20), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
     ]]
 ]
@@ -1044,10 +1018,76 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
 
     print("DONE!")
 
-# Train with best classifier
-# DecisionTree
 
-classifier = DecisionTreeClassifier(criterion = "entropy").fit(single_keyword_vecs)
+# Classify study data
+manual_docs = pd.read_csv("../datasets/manual_docs.csv")
+tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+train_docs = pd.read_json("../datasets/study_train_data.json", orient="index")
+
+manual_docs.to_json("study_manual_data.json", orient="index")
+
+# Prepare data
+keywords = train_docs["Keywords_Processed"]
+multi = [key.replace(" ", "_") for key in keywords.tolist()]
+single = [key for key in keywords.tolist()]
+
+# x
+tool_keywords = tool_docs["Keywords_Processed"]
+tool_single = [key for key in tool_keywords.tolist()]
+
+manual_keywords = tool_docs["Keywords_Processed"]
+manual_single = [key for key in manual_keywords.tolist()]
+
+# y
+enc = MultiLabelBinarizer()
+enc.fit([cluster.split(";")
+         for cluster in train_docs["Clusters"].tolist()])
+
+y = np.vstack(train_docs.apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+
+tool_y = np.vstack(tool_docs.apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+
+manual_y = np.vstack(manual_docs.apply(
+    lambda row: enc.transform([row["Clusters"].split(";")])[0], axis=1).values)
+
+# Embedding
+nlp_bert = spacy.load('en_trf_bertbaseuncased_lg')
+
+is_using_gpu = spacy.prefer_gpu()  
+if is_using_gpu:
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
+
+bert_single_vecs = []
+tool_bert_single_vecs = []
+manual_bert_single_vecs = []
+
+# Embed all docs
+for doc in single:
+    bert_single_vecs.append(nlp_bert(doc).vector)
+
+for doc in tool_single:
+    tool_bert_single_vecs.append(nlp_bert(doc).vector)
+
+for doc in manual_single:
+    manual_bert_single_vecs.append(nlp_bert(doc).vector)
+
+# Best classifier
+clf = MultiOutputClassifier(SVC(gamma="scale", kernel="linear"))
+clf.fit(bert_single_vecs, y)
+
+manual_pred = clf.predict(manual_bert_single_vecs)
+tool_pred = clf.predict(tool_bert_single_vecs)
+
+# print automatic results reports
+print(classification_report(manual_y, manual_pred))
+print(classification_report(tool_y, tool_pred))
+
+# Convert tool data to performance number
+tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+
+michael_tool_keywords = pd.read_csv("../datasets/michael_tool_keywords.csv")
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
