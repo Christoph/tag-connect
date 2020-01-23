@@ -634,13 +634,17 @@ for i, row in mkout.iterrows():
 mkout.to_csv("manual_keywords.csv", index=False)
 
 # Update mapping
-study_mapping = pd.DataFrame(columns=mapping.columns)
+manual_keywords = pd.read_csv("../datasets/manual_keywords.csv")
+tool_keywords = pd.read_csv("../datasets/tool_keywords.csv")
 
+test_keywords = set()
+
+study_mapping = pd.DataFrame(columns=mapping.columns) 
 for i, m in mapping.iterrows():
     if m["AuthorKeyword"] not in test_keywords:
         study_mapping = study_mapping.append(m)
 
-study_mapping.to_csv("study_mapping.csv", index=False)
+study_mapping.to_json("study_mapping.json", orient="index")
 
 
 # mapping_data = mapping.drop(
