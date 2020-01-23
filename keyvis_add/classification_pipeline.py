@@ -1089,9 +1089,26 @@ print(classification_report(manual_y, manual_pred))
 print(classification_report(tool_y, tool_pred))
 
 # Convert tool data to performance number
-tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
-
+tool_docs = pd.read_csv("../datasets/tool_docs.csv")
 michael_tool_keywords = pd.read_csv("../datasets/michael_tool_keywords.csv")
+
+tool_docs["Michael_Result"] = ""
+michael_mapping = {}
+
+for i, row in michael_tool_keywords.iterrows():
+    if row["keyword"] not in michael_mapping:
+        michael_mapping[row["keyword"]] = row["label"]
+
+for i, row in tool_docs.iterrows():
+    temp = []
+    for keyword in row["Keywords_Processed"].split(";"):
+        if keyword in michael_mapping:
+            temp.append(michael_mapping[keyword])
+        else:
+            print(keyword)
+    
+    row["Michael_Result"] = temp
+       
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
