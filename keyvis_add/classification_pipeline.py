@@ -1024,22 +1024,19 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
 
 
 # Classify study data
-manual_docs = pd.read_csv("../datasets/manual_docs.csv")
+manual_docs = pd.read_json("../datasets/study_manual_data.json", orient="index")
 tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
 train_docs = pd.read_json("../datasets/study_train_data.json", orient="index")
 
-manual_docs.to_json("study_manual_data.json", orient="index")
-
 # Prepare data
 keywords = train_docs["Keywords_Processed"]
-multi = [key.replace(" ", "_") for key in keywords.tolist()]
 single = [key for key in keywords.tolist()]
 
 # x
 tool_keywords = tool_docs["Keywords_Processed"]
 tool_single = [key for key in tool_keywords.tolist()]
 
-manual_keywords = tool_docs["Keywords_Processed"]
+manual_keywords = manual_docs["Keywords_Processed"]
 manual_single = [key for key in manual_keywords.tolist()]
 
 # y
@@ -1085,8 +1082,36 @@ manual_pred = clf.predict(manual_bert_single_vecs)
 tool_pred = clf.predict(tool_bert_single_vecs)
 
 # print automatic results reports
-print(classification_report(manual_y, manual_pred))
-print(classification_report(tool_y, tool_pred))
+# print(classification_report(manual_y, manual_pred))
+# print(classification_report(tool_y, tool_pred))
+
+manual_docs["Pred_Bert"] = ""
+for (i, doc), pred in zip(manual_docs.iterrows(), enc.inverse_transform(manual_pred)):
+    doc["Pred_Bert"] = ";".join(pred)
+
+tool_docs["Pred_Bert"] = ""
+for (i, doc), pred in zip(tool_docs.iterrows(), enc.inverse_transform(tool_pred)):
+    doc["Pred_Bert"] += ";".join(pred)
+
+# manual_docs.to_csv("auto_bert_manual_docs.csv")
+# tool_docs.to_csv("auto_bert_tool_docs.csv")
+
+# Comparison
+comparison = pd.DataFrame(columns=["Result", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
+
+
+prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
+comparison = comparison.append(pd.DataFrame([[
+    "Auto_Bert",
+    "Tool",
+    prfs[0].mean(),
+    prfs[0].std(),
+    prfs[1].mean(),
+    prfs[1].std(),
+    prfs[2].mean(),
+    prfs[2].std(),
+]], columns=comparison.columns))
+
 
 # Convert tool data to performance number
 tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
@@ -1116,6 +1141,7 @@ for i, row in tool_docs.iterrows():
     
     row["Michael_Result"] = ";".join(temp)
        
+
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
