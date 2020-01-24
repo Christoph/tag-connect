@@ -1163,26 +1163,22 @@ tool_doc_keywords.to_csv("results_tool_doc_labels.csv", index="false")
 # Comparison Keyword Performance
 
 
+# Tool data
 tool_labels_rec = pd.read_csv("../datasets/auto_rec_tool_keywords.csv")
 tool_labels_michael = pd.read_csv("../datasets/michael_tool_keywords.csv")
 tool_labels_truth = pd.read_csv("../datasets/truth_tool_keywords.csv")
 
-new_truth_table = pd.DataFrame(columns=["keyword", "label"])
 tool_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael"])
 
-# ma = {}
+ma = {}
+for i, row in tool_labels_truth.iterrows():
+    keyword = row["keyword"]
+    label = row["label"]
 
-# for i, row in tool_labels_truth.iterrows():
-#     keyword = lemmatization(row["keyword"], "")
-#     label = row["truth"]
+    if keyword not in ma:
+        ma[keyword] = label
 
-#     if keyword not in ma:
-#         ma[keyword] = label
-#     else:
-#         print(keyword, label)
-
-for i, row in tool_labels_rec.iterrows():
-    # m = ma[lemmatization(row["keyword"], "")]
+for i, row in tool_labels_michael.iterrows():
     m = ma[row["keyword"]]
 
     tool_keyword_labels = tool_keyword_labels.append(pd.DataFrame([[
@@ -1192,13 +1188,43 @@ for i, row in tool_labels_rec.iterrows():
         tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
     ]], columns=tool_keyword_labels.columns))
 
-    # new_truth_table = new_truth_table.append(pd.DataFrame([[
-    #     row["keyword"],
-    #     m
-    # ]], columns=new_truth_table.columns))
+tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
+
+# Manual data
+manual_labels_rec = pd.read_csv("../datasets/auto_rec_manual_keywords.csv")
+manual_labels_truth = pd.read_csv("../datasets/truth_manual_keywords.csv")
+
+new_truth_table = pd.DataFrame(columns=["keyword", "label"])
+manual_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael"])
+
+ma = {}
+for i, row in manual_labels_truth.iterrows():
+    keyword = lemmatization(row["keyword"], "")
+    label = row["truth"]
+
+    if keyword not in ma:
+        ma[keyword] = label
+    else:
+        print(keyword, label)
+
+for i, row in manual_labels_michael.iterrows():
+    m = ma[lemmatization(row["keyword"], "")]
+    # m = ma[row["keyword"]]
+
+    tool_keyword_labels = tool_keyword_labels.append(pd.DataFrame([[
+        row["keyword"],
+        # tool_labels_truth.loc[tool_labels_truth['keyword'] == row["keyword"]]["truth"].iloc[0],
+        m,
+        row["label"],
+        tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
+    ]], columns=tool_keyword_labels.columns))
+
+    new_truth_table = new_truth_table.append(pd.DataFrame([[
+        row["keyword"],
+        m
+    ]], columns=new_truth_table.columns))
 
 tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
-# new_truth_table.to_csv("truth_tool_keywords.csv", index=False)
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
