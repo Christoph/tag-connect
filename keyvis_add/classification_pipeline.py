@@ -1141,7 +1141,7 @@ for i, row in tool_docs.iterrows():
     
     row["Michael_Result"] = ";".join(temp)
        
-
+tool_docs.to_csv("michael_tool_docs.csv", index=False)
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
