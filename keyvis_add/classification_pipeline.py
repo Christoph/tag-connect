@@ -7,6 +7,7 @@ import random
 import re
 import pandas as pd
 import numpy as np
+import spacy
 import torch
 # from textblob import TextBlob
 from sklearn.decomposition import NMF, LatentDirichletAllocation, FastICA
@@ -14,7 +15,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
-import spacy
 from sklearn.manifold import TSNE, MDS
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.model_selection import train_test_split, StratifiedKFold, ShuffleSplit
@@ -56,7 +56,7 @@ def lemmatization(text, stopwords):
     regexr = text.replace(";", " ")
     for sent in nlp(regexr).sents:
         temp = " ".join((token.lemma_ for token in sent if
-                         token.lemma_ not in stop_words and
+                         token.lemma_ not in stopwords and
                          len(token.lemma_) > 1 and
                          not token.lemma_ == "-PRON-"))
         texts_out.append(temp)
@@ -1093,25 +1093,8 @@ tool_docs["Pred_Bert"] = ""
 for (i, doc), pred in zip(tool_docs.iterrows(), enc.inverse_transform(tool_pred)):
     doc["Pred_Bert"] += ";".join(pred)
 
-# manual_docs.to_csv("auto_bert_manual_docs.csv")
-# tool_docs.to_csv("auto_bert_tool_docs.csv")
-
-# Comparison
-comparison = pd.DataFrame(columns=["Result", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
-
-
-prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
-comparison = comparison.append(pd.DataFrame([[
-    "Auto_Bert",
-    "Tool",
-    prfs[0].mean(),
-    prfs[0].std(),
-    prfs[1].mean(),
-    prfs[1].std(),
-    prfs[2].mean(),
-    prfs[2].std(),
-]], columns=comparison.columns))
-
+# manual_docs.to_csv("auto_bert_manual_docs.csv", index="false")
+# tool_docs.to_csv("auto_bert_tool_docs.csv", index="false")
 
 # Convert tool data to performance number
 tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
@@ -1142,6 +1125,80 @@ for i, row in tool_docs.iterrows():
     row["Michael_Result"] = ";".join(temp)
        
 tool_docs.to_csv("michael_tool_docs.csv", index=False)
+
+# Comparison Classification Performance
+
+comparison = pd.DataFrame(columns=["Result", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
+
+prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
+comparison = comparison.append(pd.DataFrame([[
+    "Auto_Bert",
+    "Tool",
+    prfs[0].mean(),
+    prfs[0].std(),
+    prfs[1].mean(),
+    prfs[1].std(),
+    prfs[2].mean(),
+    prfs[2].std(),
+]], columns=comparison.columns))
+
+
+tool_auto_bert = pd.read_csv("../datasets/auto_bert_tool_docs.csv")
+tool_auto_rec = pd.read_csv("../datasets/auto_rec_tool_docs.csv")
+tool_michael = pd.read_csv("../datasets/michael_tool_docs.csv")
+
+tool_doc_keywords = pd.DataFrame(columns=["Title", "Truth", "Auto_Bert", "Auto_Rec", "Michael"])
+
+for i, row in tool_michael.iterrows():
+    tool_doc_keywords = tool_doc_keywords.append(pd.DataFrame([[
+        row["Title"],
+        row["Clusters"],
+        tool_auto_bert.iloc[i]["Pred_Bert"],
+        tool_auto_rec.iloc[i]["labels"],
+        row["Michael_Result"],
+    ]], columns=tool_doc_keywords.columns))
+
+tool_doc_keywords.to_csv("results_tool_doc_labels.csv", index="false")
+
+# Comparison Keyword Performance
+
+
+tool_labels_rec = pd.read_csv("../datasets/auto_rec_tool_keywords.csv")
+tool_labels_michael = pd.read_csv("../datasets/michael_tool_keywords.csv")
+tool_labels_truth = pd.read_csv("../datasets/truth_tool_keywords.csv")
+
+new_truth_table = pd.DataFrame(columns=["keyword", "label"])
+tool_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael"])
+
+# ma = {}
+
+# for i, row in tool_labels_truth.iterrows():
+#     keyword = lemmatization(row["keyword"], "")
+#     label = row["truth"]
+
+#     if keyword not in ma:
+#         ma[keyword] = label
+#     else:
+#         print(keyword, label)
+
+for i, row in tool_labels_rec.iterrows():
+    # m = ma[lemmatization(row["keyword"], "")]
+    m = ma[row["keyword"]]
+
+    tool_keyword_labels = tool_keyword_labels.append(pd.DataFrame([[
+        row["keyword"],
+        m,
+        row["label"],
+        tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
+    ]], columns=tool_keyword_labels.columns))
+
+    # new_truth_table = new_truth_table.append(pd.DataFrame([[
+    #     row["keyword"],
+    #     m
+    # ]], columns=new_truth_table.columns))
+
+tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
+# new_truth_table.to_csv("truth_tool_keywords.csv", index=False)
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
