@@ -796,7 +796,7 @@ datasets = [
     # ["abstract max_df=0.6", abstract_60_vecs],
     # ["single keywords", single_keyword_vecs],
     ["bert single keywords", np.array(bert_single_vecs)],
-    ["bert abstracts", np.array(bert_abstract_vecs)],
+    # ["bert abstracts", np.array(bert_abstract_vecs)],
     # ["multi keywords", multi_keyword_vecs]
 ]
 
@@ -879,18 +879,26 @@ classifications = [
             "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": 20, "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": 20, "activation": "relu",
+            "solver": "lbfgs", "max_iter": 300},
         {"hidden_layer_sizes": 50, "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": (10, 10), "activation": "relu",
             "solver": "lbfgs", "max_iter": 200},
-        {"hidden_layer_sizes": (20, 20), "activation": "relu",
+        {"hidden_layer_sizes": (20, 20, 20, 20, 5), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
-        {"hidden_layer_sizes": (50, 50), "activation": "relu",
+        {"hidden_layer_sizes": (50, 50, 50), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": (50, 20, 10), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
         {"hidden_layer_sizes": (20, 20, 20), "activation": "relu",
          "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (20, 20, 10), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 200},
+        {"hidden_layer_sizes": (20, 20, 20), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 300},
+        {"hidden_layer_sizes": (20, 20, 20), "activation": "relu",
+         "solver": "lbfgs", "max_iter": 400},
     ]]
 ]
 
@@ -1126,23 +1134,8 @@ for i, row in tool_docs.iterrows():
        
 tool_docs.to_csv("michael_tool_docs.csv", index=False)
 
-# Comparison Classification Performance
 
-comparison = pd.DataFrame(columns=["Result", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
-
-prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
-comparison = comparison.append(pd.DataFrame([[
-    "Auto_Bert",
-    "Tool",
-    prfs[0].mean(),
-    prfs[0].std(),
-    prfs[1].mean(),
-    prfs[1].std(),
-    prfs[2].mean(),
-    prfs[2].std(),
-]], columns=comparison.columns))
-
-
+# Crete tool docs
 tool_auto_bert = pd.read_csv("../datasets/auto_bert_tool_docs.csv")
 tool_auto_rec = pd.read_csv("../datasets/auto_rec_tool_docs.csv")
 tool_michael = pd.read_csv("../datasets/michael_tool_docs.csv")
@@ -1166,9 +1159,10 @@ tool_doc_keywords.to_csv("results_tool_doc_labels.csv", index="false")
 # Tool data
 tool_labels_rec = pd.read_csv("../datasets/auto_rec_tool_keywords.csv")
 tool_labels_michael = pd.read_csv("../datasets/michael_tool_keywords.csv")
+tool_labels_mike = pd.read_csv("../datasets/mike_tool_keywords.csv")
 tool_labels_truth = pd.read_csv("../datasets/truth_tool_keywords.csv")
 
-tool_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael"])
+tool_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael", "Mike"])
 
 ma = {}
 for i, row in tool_labels_truth.iterrows():
@@ -1186,45 +1180,89 @@ for i, row in tool_labels_michael.iterrows():
         m,
         row["label"],
         tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
+        tool_labels_mike.loc[tool_labels_mike['keyword'] == row["keyword"]]["label"].iloc[0],
     ]], columns=tool_keyword_labels.columns))
 
 tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
 
 # Manual data
-manual_labels_rec = pd.read_csv("../datasets/auto_rec_manual_keywords.csv")
-manual_labels_truth = pd.read_csv("../datasets/truth_manual_keywords.csv")
+# manual_labels_rec = pd.read_csv("../datasets/auto_rec_manual_keywords.csv")
+# manual_labels_truth = pd.read_csv("../datasets/truth_manual_keywords.csv")
+# manual_torsten_keywords = pd.read_csv("../datasets/torsten_manual_keywords.csv", delimiter=";")
+# manual_mike_keywords = pd.read_csv("../datasets/mike_manual_keywords.csv")
 
-new_truth_table = pd.DataFrame(columns=["keyword", "label"])
-manual_keyword_labels = pd.DataFrame(columns=["Keyword", "Truth", "Rec", "Michael"])
+manual_labels_total = pd.read_csv("../datasets/results_manual_keyword_label_total.csv", delimiter=";")
 
-ma = {}
-for i, row in manual_labels_truth.iterrows():
-    keyword = lemmatization(row["keyword"], "")
-    label = row["truth"]
+# new_truth_table = pd.DataFrame(columns=["keyword", "label"])
+# manual_keyword_labels = pd.DataFrame(
+#     columns=["Keyword", "Truth", "Rec", "Mike", "Torsten"])
 
-    if keyword not in ma:
-        ma[keyword] = label
-    else:
-        print(keyword, label)
+manual_labels_total["Michael"] = ""
 
 for i, row in manual_labels_michael.iterrows():
-    m = ma[lemmatization(row["keyword"], "")]
-    # m = ma[row["keyword"]]
+    #set one column
+    pass
 
-    tool_keyword_labels = tool_keyword_labels.append(pd.DataFrame([[
-        row["keyword"],
-        # tool_labels_truth.loc[tool_labels_truth['keyword'] == row["keyword"]]["truth"].iloc[0],
-        m,
-        row["label"],
-        tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
-    ]], columns=tool_keyword_labels.columns))
 
-    new_truth_table = new_truth_table.append(pd.DataFrame([[
-        row["keyword"],
-        m
-    ]], columns=new_truth_table.columns))
+manual_labels_total.to_csv("results_manual_labels.csv", index=False)
 
-tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
+# Comparison Classification Performance
+tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+train_docs = pd.read_json("../datasets/study_train_data.json", orient="index")
+
+labels = pd.read_csv("../datasets/labels.csv")
+mapping = pd.read_json("../datasets/mapping_modified.json", orient="index")
+
+results = pd.read_csv("../datasets/results_tool_keyword_labels.csv")
+
+all_mapping = {}
+for i, row in mapping.iterrows():
+    if row["AuthorKeyword"] not in all_mapping:
+        all_mapping[row["AuthorKeyword"]] = row["ExpertKeyword"]
+
+for i, row in michael_tool_keywords.iterrows():
+    if row["keyword"] not in michael_mapping:
+        michael_mapping[row["keyword"]] = row["label"]
+
+
+# y - encoder
+enc = MultiLabelBinarizer()
+enc.fit([cluster.split(";")
+         for cluster in labels["Label"].tolist()])
+
+comparison = pd.DataFrame(columns=["Source", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
+
+for i, row in tool_docs.iterrows():
+    temp = []
+    local_mapping = {}
+
+    # create mapping
+    for i, re in results.iterrows():
+        if re["Keyword"] not in local_mapping:
+            local_mapping[re["Keyword"]] = re["Rec"]
+
+    # map keywords to labels
+    for keyword in row["Keywords"].split(";"):
+        if keyword in local_mapping:
+            temp.append(local_mapping[keyword])
+        else:
+            temp.append(all_mapping[keyword])
+
+    print(";".join(temp))
+
+
+
+prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
+comparison = comparison.append(pd.DataFrame([[
+    "Auto_Bert",
+    "Tool",
+    prfs[0].mean(),
+    prfs[0].std(),
+    prfs[1].mean(),
+    prfs[1].std(),
+    prfs[2].mean(),
+    prfs[2].std(),
+]], columns=comparison.columns))
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
