@@ -1178,8 +1178,8 @@ for i, row in tool_labels_michael.iterrows():
     tool_keyword_labels = tool_keyword_labels.append(pd.DataFrame([[
         row["keyword"],
         m,
+        tool_labels_rec.loc[tool_labels_rec['keyword'] == row["keyword"]]["label"].iloc[0],
         row["label"],
-        tool_labels_michael.loc[tool_labels_michael['keyword'] == row["keyword"]]["label"].iloc[0],
         tool_labels_mike.loc[tool_labels_mike['keyword'] == row["keyword"]]["label"].iloc[0],
     ]], columns=tool_keyword_labels.columns))
 
@@ -1207,62 +1207,92 @@ for i, row in manual_labels_michael.iterrows():
 manual_labels_total.to_csv("results_manual_labels.csv", index=False)
 
 # Comparison Classification Performance
-tool_docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
-train_docs = pd.read_json("../datasets/study_train_data.json", orient="index")
-
 labels = pd.read_csv("../datasets/labels.csv")
-mapping = pd.read_json("../datasets/mapping_modified.json", orient="index")
+clusters = labels["Label"].tolist()
+clusters.append("Unclear")
+clusters = [c.lower() for c in clusters]
+mapping = pd.read_json("../datasets/mapping.json", orient="index")
 
 results = pd.read_csv("../datasets/results_tool_keyword_labels.csv")
+docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+
+# results = pd.read_csv("../datasets/results_manual_keyword_label.csv", delimiter=";")
+# results.columns = ["Keyword", "Keyword_Original", "Truth", "Rec", "Mike", "Torsten"]
+# docs = pd.read_json("../datasets/study_manual_data.json", orient="index")
 
 all_mapping = {}
 for i, row in mapping.iterrows():
     if row["AuthorKeyword"] not in all_mapping:
-        all_mapping[row["AuthorKeyword"]] = row["ExpertKeyword"]
+        all_mapping[row["AuthorKeyword"]] = row["ExpertKeyword"].lower()
 
-for i, row in michael_tool_keywords.iterrows():
-    if row["keyword"] not in michael_mapping:
-        michael_mapping[row["keyword"]] = row["label"]
+# for i, row in michael_tool_keywords.iterrows():
+#     if row["keyword"] not in michael_mapping:
+#         michael_mapping[row["keyword"]] = row["label"]
 
+def normalize_label(label):
+    l = re.sub('[^\w]+', '', label).replace(" ", "").lower()
+    return l
 
 # y - encoder
 enc = MultiLabelBinarizer()
-enc.fit([cluster.split(";")
-         for cluster in labels["Label"].tolist()])
+enc.fit([clusters])
 
-comparison = pd.DataFrame(columns=["Source", "Type", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
+# Create truth mapping
+truth_mapping = {}
+for i, result in results.iterrows():
+    if result["Keyword"] not in truth_mapping:
+        truth_mapping[result["Keyword"]] = result["Truth"].lower()
 
-for i, row in tool_docs.iterrows():
-    temp = []
+comparison = pd.DataFrame(columns=["Source", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
+sources = ["Rec", "Michael", "Mike"]
+
+for source in sources:
+    labels = []
+    truth_labels = []
+
     local_mapping = {}
 
-    # create mapping
-    for i, re in results.iterrows():
-        if re["Keyword"] not in local_mapping:
-            local_mapping[re["Keyword"]] = re["Rec"]
+    # create local mapping
+    for i, result in results.iterrows():
+        if result["Keyword"] not in local_mapping:
+            local_mapping[result["Keyword"]] = result[source].lower()
 
-    # map keywords to labels
-    for keyword in row["Keywords"].split(";"):
-        if keyword in local_mapping:
-            temp.append(local_mapping[keyword])
-        else:
-            temp.append(all_mapping[keyword])
+    for i, row in docs.iterrows():
+        temp = []
+        temp_truth = []
 
-    print(";".join(temp))
+        # map keywords to labels
+        for keyword in row["Keywords_Processed"].split(";"):
+            # Map local 
+            if keyword in local_mapping:
+                temp.append(normalize_label(local_mapping[keyword]))
+            else:
+                temp.append(normalize_label(all_mapping[keyword]))
+            
+            # Map truth
+            if keyword in truth_mapping:
+                temp_truth.append(normalize_label(truth_mapping[keyword]))
+            else:
+                temp_truth.append(normalize_label(all_mapping[keyword]))
 
+        labels.append(temp)
+        truth_labels.append(temp_truth)
 
+    truth = enc.transform(truth_labels)
+    encoded = enc.transform(labels)
 
-prfs = precision_recall_fscore_support(manual_y, manual_pred, warn_for=[])
-comparison = comparison.append(pd.DataFrame([[
-    "Auto_Bert",
-    "Tool",
-    prfs[0].mean(),
-    prfs[0].std(),
-    prfs[1].mean(),
-    prfs[1].std(),
-    prfs[2].mean(),
-    prfs[2].std(),
-]], columns=comparison.columns))
+    prfs = precision_recall_fscore_support(truth, encoded, warn_for=[])
+    comparison = comparison.append(pd.DataFrame([[
+        source,
+        prfs[0].mean(),
+        prfs[0].std(),
+        prfs[1].mean(),
+        prfs[1].std(),
+        prfs[2].mean(),
+        prfs[2].std(),
+    ]], columns=comparison.columns))
+
+comparison.to_csv("classification_performance.csv", index=False)
 
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
@@ -1298,3 +1328,37 @@ comparison = comparison.append(pd.DataFrame([[
 
 # print(classification_report(y_train, print_cls.predict(x_train_single), target_names=classes["Cluster"]))
 # print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
+
+        # Updated Mappings for consistency reasons
+        # if keyword == "bookmarks": 
+        #     keyword = "bookmark"
+        # elif keyword == "graph splatting": 
+        #     keyword = "graph splatte"
+        # elif keyword == "scale-free": 
+        #     keyword = "scale free"
+        # elif keyword == "networks": 
+        #     keyword = "network"
+        # elif keyword == "dynamic networks": 
+        #     keyword = "dynamic network"
+        # elif keyword == "merging": 
+        #     keyword = "merge"
+        # elif keyword == "editing": 
+        #     keyword = "edit"
+        # elif keyword == "crowdsourcing": 
+        #     keyword = "crowdsource"
+        # elif keyword == "crowdsourcing": 
+        #     keyword = "crowdsource"
+        # elif keyword == "local pattern visualizations": 
+        #     keyword = "local pattern visualization"
+        # elif keyword == "large data system": 
+        #     keyword = "large datum system"
+        # elif keyword == "geophysics": 
+        #     keyword = "geophysic"
+        # elif keyword == "visualized decision making": 
+        #     keyword = "visualize decision making"
+        # elif keyword == "limitations": 
+        #     keyword = "limitation"
+        # elif keyword == "flowing seed points": 
+        #     keyword = "flow seed point"
+        # elif keyword == "data stream": 
+        #     keyword = "datum stream"
