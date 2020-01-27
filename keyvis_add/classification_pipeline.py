@@ -1294,6 +1294,24 @@ for source in sources:
 
 comparison.to_csv("classification_performance.csv", index=False)
 
+tool_doc_labels = pd.read_csv("../datasets/results_tool_doc_labels.csv")
+
+truth = enc.transform([l.split(";") for l in tool_doc_labels["Truth"].str.lower()])
+encoded = enc.transform([l.split(";") for l in tool_doc_labels.fillna("")["Auto_Bert"].str.lower()])
+
+prfs = precision_recall_fscore_support(truth, encoded, warn_for=[])
+comparison = comparison.append(pd.DataFrame([[
+    "Auto_Bert",
+    prfs[0].mean(),
+    prfs[0].std(),
+    prfs[1].mean(),
+    prfs[1].std(),
+    prfs[2].mean(),
+    prfs[2].std(),
+]], columns=comparison.columns))
+
+comparison.to_csv("classification_performance.csv", index=False)
+
 # # onevsrest = OneVsRestClassifier(SVC()).fit(x_train, y_train)
 # # onevsrest.score(x_test, y_test)
 # # tree = DecisionTreeClassifier(criterion="entropy").fit(x_train, y_train)
