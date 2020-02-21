@@ -546,7 +546,7 @@ for index, row in manual_data_all.iterrows():
     temp = row["Authors"].split(";")
     # if len(temp) >= 3:
     #     temp = [temp[0], temp[-1]]
-        
+
     if any(n in authors for n in temp):
         pass
     else:
@@ -582,7 +582,7 @@ for index, row in tool_data_all.iterrows():
     temp = row["Authors"].split(";")
     # if len(temp) >= 3:
     #     temp = [temp[0], temp[-1]]
-        
+
     if any(n in authors for n in temp):
         pass
     else:
@@ -639,7 +639,7 @@ tool_keywords = pd.read_csv("../datasets/tool_keywords.csv")
 
 test_keywords = set()
 
-study_mapping = pd.DataFrame(columns=mapping.columns) 
+study_mapping = pd.DataFrame(columns=mapping.columns)
 for i, m in mapping.iterrows():
     if m["AuthorKeyword"] not in test_keywords:
         study_mapping = study_mapping.append(m)
@@ -766,7 +766,7 @@ new_multi_keyword_vecs = multi_keyword_tfidf.transform(new_multi)
 # BERT embedding
 nlp_bert = spacy.load('en_trf_bertbaseuncased_lg')
 
-is_using_gpu = spacy.prefer_gpu()  
+is_using_gpu = spacy.prefer_gpu()
 if is_using_gpu:
     torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
@@ -913,7 +913,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
         data = dataset[1]
         skf = ShuffleSplit(n_splits=2)
         split_indices = []
-                
+
         for train_index, test_index in skf.split(data, y):
             split_indices.append((train_index, test_index))
 
@@ -960,7 +960,7 @@ def find_best_classifier(datasets, dimension_reductions, classifications):
                 clf_rec = np.array(rec_scores).mean()
                 out = out.append(pd.DataFrame([[name, "None", "original", clf_name, str(param), clf_acc, clf_pre, clf_rec]], columns=[
                     "Dataset", "DR", "Dimensions", "Method", "Params", "Accuracy", "Precision", "Recall"]), ignore_index=True)
-                
+
             out.to_csv("results.csv", index=False)
 
         # Iterate the dimension reductions
@@ -1064,7 +1064,7 @@ manual_y = np.vstack(manual_docs.apply(
 # Embedding
 nlp_bert = spacy.load('en_trf_bertbaseuncased_lg')
 
-is_using_gpu = spacy.prefer_gpu()  
+is_using_gpu = spacy.prefer_gpu()
 if is_using_gpu:
     torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
@@ -1129,9 +1129,9 @@ for i, row in tool_docs.iterrows():
         else:
             temp.append(all_mapping[keyword])
 
-    
+
     row["Michael_Result"] = ";".join(temp)
-       
+
 tool_docs.to_csv("michael_tool_docs.csv", index=False)
 
 
@@ -1191,20 +1191,7 @@ tool_keyword_labels.to_csv("results_tool_keyword_labels.csv", index=False)
 # manual_torsten_keywords = pd.read_csv("../datasets/torsten_manual_keywords.csv", delimiter=";")
 # manual_mike_keywords = pd.read_csv("../datasets/mike_manual_keywords.csv")
 
-manual_labels_total = pd.read_csv("../datasets/results_manual_keyword_label_total.csv", delimiter=";")
-
-# new_truth_table = pd.DataFrame(columns=["keyword", "label"])
-# manual_keyword_labels = pd.DataFrame(
-#     columns=["Keyword", "Truth", "Rec", "Mike", "Torsten"])
-
-manual_labels_total["Michael"] = ""
-
-for i, row in manual_labels_michael.iterrows():
-    #set one column
-    pass
-
-
-manual_labels_total.to_csv("results_manual_labels.csv", index=False)
+# manual_labels_total = pd.read_csv("../datasets/results_manual_keyword_labels.csv", delimiter=",")
 
 # Comparison Classification Performance
 labels = pd.read_csv("../datasets/labels.csv")
@@ -1213,8 +1200,11 @@ clusters.append("Unclear")
 clusters = [c.lower() for c in clusters]
 mapping = pd.read_json("../datasets/mapping.json", orient="index")
 
-results = pd.read_csv("../datasets/results_tool_keyword_labels.csv")
-docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+# results = pd.read_csv("../datasets/results_tool_keyword_labels.csv")
+# docs = pd.read_json("../datasets/study_tool_data.json", orient="index")
+
+results = pd.read_csv("../datasets/results_manual_keyword_labels.csv")
+docs = pd.read_json("../datasets/study_manual_data.json", orient="index")
 
 # results = pd.read_csv("../datasets/results_manual_keyword_label.csv", delimiter=";")
 # results.columns = ["Keyword", "Keyword_Original", "Truth", "Rec", "Mike", "Torsten"]
@@ -1244,7 +1234,7 @@ for i, result in results.iterrows():
         truth_mapping[result["Keyword"]] = result["Truth"].lower()
 
 comparison = pd.DataFrame(columns=["Source", "Mean_Precision", "Std_Precision", "Mean_Recall", "Std_Recall","Mean_F1", "Std_F1"])
-sources = ["Rec", "Michael", "Mike"]
+sources = ["Rec", "Michael", "Mike", "Michael"]
 
 for source in sources:
     labels = []
@@ -1263,12 +1253,12 @@ for source in sources:
 
         # map keywords to labels
         for keyword in row["Keywords_Processed"].split(";"):
-            # Map local 
+            # Map local
             if keyword in local_mapping:
                 temp.append(normalize_label(local_mapping[keyword]))
             else:
                 temp.append(normalize_label(all_mapping[keyword]))
-            
+
             # Map truth
             if keyword in truth_mapping:
                 temp_truth.append(normalize_label(truth_mapping[keyword]))
@@ -1348,35 +1338,35 @@ comparison.to_csv("classification_performance.csv", index=False)
 # print(classification_report(y_test, print_cls.predict(x_test_single), target_names=classes["Cluster"]))
 
         # Updated Mappings for consistency reasons
-        # if keyword == "bookmarks": 
+        # if keyword == "bookmarks":
         #     keyword = "bookmark"
-        # elif keyword == "graph splatting": 
+        # elif keyword == "graph splatting":
         #     keyword = "graph splatte"
-        # elif keyword == "scale-free": 
+        # elif keyword == "scale-free":
         #     keyword = "scale free"
-        # elif keyword == "networks": 
+        # elif keyword == "networks":
         #     keyword = "network"
-        # elif keyword == "dynamic networks": 
+        # elif keyword == "dynamic networks":
         #     keyword = "dynamic network"
-        # elif keyword == "merging": 
+        # elif keyword == "merging":
         #     keyword = "merge"
-        # elif keyword == "editing": 
+        # elif keyword == "editing":
         #     keyword = "edit"
-        # elif keyword == "crowdsourcing": 
+        # elif keyword == "crowdsourcing":
         #     keyword = "crowdsource"
-        # elif keyword == "crowdsourcing": 
+        # elif keyword == "crowdsourcing":
         #     keyword = "crowdsource"
-        # elif keyword == "local pattern visualizations": 
+        # elif keyword == "local pattern visualizations":
         #     keyword = "local pattern visualization"
-        # elif keyword == "large data system": 
+        # elif keyword == "large data system":
         #     keyword = "large datum system"
-        # elif keyword == "geophysics": 
+        # elif keyword == "geophysics":
         #     keyword = "geophysic"
-        # elif keyword == "visualized decision making": 
+        # elif keyword == "visualized decision making":
         #     keyword = "visualize decision making"
-        # elif keyword == "limitations": 
+        # elif keyword == "limitations":
         #     keyword = "limitation"
-        # elif keyword == "flowing seed points": 
+        # elif keyword == "flowing seed points":
         #     keyword = "flow seed point"
-        # elif keyword == "data stream": 
+        # elif keyword == "data stream":
         #     keyword = "datum stream"
